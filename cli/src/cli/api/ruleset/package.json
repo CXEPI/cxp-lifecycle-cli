@@ -1,0 +1,12 @@
+{
+  "name": "cx-platform-api-ruleset",
+  "version": "1.0.0",
+  "repository": "git@github.com:CXEPI/platform-api-ruleset.git",
+  "author": "Nimrod Shlagman <nemos@cisco.com>",
+  "license": "MIT",
+  "dependencies": {
+    "compromise": "^14.14.4",
+    "lodash": "^4.17.21",
+    "pluralize": "^8.0.0"
+  }
+}

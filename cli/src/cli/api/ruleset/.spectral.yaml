@@ -1,0 +1,82 @@
+extends:
+  - "api-insights-openapi-ruleset.js"
+  - "contract.js"
+  - "documentation.js"
+  - "completeness.js"
+
+functions:
+  - ensureFields
+  - ensureValue
+  - ensureExamples
+
+rules:
+  description-for-every-attribute: false
+  info-license: false
+  license-url: false
+
+  openapi-version-3-1-0:
+    description: "OpenAPI version should be 3.1.0."
+    message: "OpenAPI version should be 3.1.0."
+    severity: error
+    given: "$"
+    then:
+      function: ensureValue
+      functionOptions:
+        field: "openapi"
+        value: 3.1.0
+
+  servers:
+    description: "API should have a servers section."
+    message: "API should have a servers section."
+    severity: error
+    given: "$"
+    then:
+      function: ensureFields
+      functionOptions:
+        fields:
+          - servers
+
+  description-for-path-methods:
+    description: "Path method should have a description."
+    message: "Method object should have a description."
+    severity: error
+    given:
+    - "$.post.*.*"
+    then:
+      function: ensureFields
+      functionOptions:
+        fields:
+          - description
+
+  error-schema-properties:
+    description: "Error schema should have title, description, errorCode and effectedResource properties."
+    message: "Error schema should have all properties [title, description, errorCode and effectedResource]."
+    severity: error
+    given: "$.components.schemas.ErrorApiResponse.properties"
+    then:
+      function: ensureFields
+      functionOptions:
+        fields:
+          - code
+          - type
+          - message
+          - effectedResource
+
+  response-example:
+    description: "Responses should have an example."
+    message: "Responses should have example."
+    severity: error
+    given: "$.paths.*.*.responses.*.content.*"
+    then:
+      function: ensureExamples
+
+  id-should-be-uuid:
+    description: "ID should be a UUID."
+    message: "ID should be a UUID."
+    severity: warn
+    given: "$.components.schemas.*.properties.id"
+    then:
+      function: ensureValue
+      functionOptions:
+        field: "format"
+        value: "uuid"

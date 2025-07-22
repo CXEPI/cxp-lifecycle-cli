@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "lifecycle-cli"
+version = "0.1.32"
+description = "CLI tool for managing lifecycle operations"
+authors = ["ronilefkowitz <rlefkowi@cisco.com>"]
+readme = "README.md"
+packages = [{ include = "cli", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+typer = "^0.16.0"
+requests = "^2.32.3"
+pyyaml = "^6.0.2"
+questionary = "^2.1.0"
+semver = "^3.0.4"
+jsonschema = "^4.24.0"
+python-dotenv = "^1.1.0"
+pydantic-settings = "^2.9.1"
+
+
+[tool.poetry.scripts]
+cx-cli = "cli.commands:app"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+black = "^24.3"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
