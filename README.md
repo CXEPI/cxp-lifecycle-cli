@@ -4,7 +4,7 @@
 ### Install
 
 - **Install**  
-  `pip install "git+https://github.com/CXEPI/cx-lifecycle.git#subdirectory=cli"`
+  `pip install "git+https://github.com/CXEPI/cxp-lifecycle-cli.git#subdirectory=cli"`
 
 
 
