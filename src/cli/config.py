@@ -20,8 +20,9 @@ PLATFORM_SERVICES = [
     },
 ]
 
-BACKEND_BASE_URL = f"{os.getenv('BACKEND_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/backend"
+BACKEND_BASE_URL = f"{os.getenv('CXP_LIFECYCLE_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/backend"
 ENV = os.getenv("ENV", "dev")
+DEPLOYMENT_BASE_URL = f"{os.getenv('CXP_LIFECYCLE_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/deployment"
 
 
 class Environment(str, Enum):
@@ -41,4 +42,3 @@ IAM_BASE_URL = {
 ENVIRONMENTS = [env.value for env in Environment]
 
 
-DEPLOYMENT_BASE_URL = f"{os.getenv('DEPLOYMENT_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/deployment"
