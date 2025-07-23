@@ -16,7 +16,8 @@ def creds_existance(file_path: str) -> bool:
     Validate that the credentials file exists and is a valid JSON.
     This is a placeholder for the actual validation logic.
     """
-    if general_config.cx_cli_service_accounts_credentials == {}:
+    if general_config.cx_cli_service_accounts_credentials != {}:
+        print(f"Creds were given in the env vars")
         return True
 
     print(f"Validating credentials file at {general_config.creds_filename}")
