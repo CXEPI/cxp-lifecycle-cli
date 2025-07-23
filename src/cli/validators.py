@@ -16,6 +16,9 @@ def creds_existance(file_path: str) -> bool:
     Validate that the credentials file exists and is a valid JSON.
     This is a placeholder for the actual validation logic.
     """
+    if general_config.cx_cli_service_accounts_credentials == {}:
+        return True
+
     print(f"Validating credentials file at {general_config.creds_filename}")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Required config file '{file_path}' not found")
@@ -30,7 +33,7 @@ def creds_existance(file_path: str) -> bool:
                     "serviceAccounts must be a dictionary with environment keys"
                 )
 
-            general_config.service_credentials = service_accounts
+            general_config.cx_cli_service_accounts_credentials = service_accounts
             print("Credentials file validated successfully.")
             return True
         else:

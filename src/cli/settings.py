@@ -6,10 +6,9 @@ class GeneralCliSettings(BaseSettings):
     """
     General settings for the CLI application
     """
-
     creds_filename: str = f"{expanduser('~')}/.cx-cli/credentials.json"
     required_fields_in_credentials_file: set[str] = {"serviceAccounts"}
-    service_credentials: dict = {}
+    cx_cli_service_accounts_credentials: dict = {}
 
 
 class APIValidationSettings(BaseSettings):
