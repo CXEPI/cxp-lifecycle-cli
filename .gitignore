@@ -1,0 +1,66 @@
+# Ignore node_modules in every package
+**/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by testing tools (e.g., istanbul)
+coverage/
+
+# Build output directories
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+
+/test/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Distribution / build artifacts
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing / Linting
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+coverage.xml
+
+# Ruff
+.ruff_cache/
+
+lifecycle/
+.husky
