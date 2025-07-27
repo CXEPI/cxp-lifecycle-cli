@@ -3,9 +3,9 @@ import base64
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import requests
-from cli.config import CONFIG_FILE, PLATFORM_SERVICES, IAM_BASE_URL, ENVIRONMENTS
+from cli.config import CONFIG_FILE, PLATFORM_SERVICES, BASE_URL_BY_ENV, ENVIRONMENTS
 from cli.helpers.api_client import APIClient
-from cli.helpers.errors import handle_request_error
+from cli.helpers.errors import handle_request_error, handle_env_error
 from cli.helpers.file import load_config, save_config
 
 
@@ -31,16 +31,20 @@ def create_application(api, config):
                 .lower()
                 .replace(" ", "-")
             )
+            application_uid = application_metadata.get("application_uid")
+            payload = {
+                "name": application_name,
+                "displayName": application_metadata.get("display_name"),
+                "description": application_metadata.get("description"),
+                "contact": application_metadata.get("lead_developer_email"),
+                "version": application_metadata.get("app_version"),
+                "git": application_metadata.get("github_url"),
+            }
+            if application_uid:
+                payload["id"] = application_uid
             response = api.post(
                 create_application_url,
-                json={
-                    "name": application_name,
-                    "displayName": application_metadata.get("display_name"),
-                    "description": application_metadata.get("description"),
-                    "contact": application_metadata.get("lead_developer_email"),
-                    "version": application_metadata.get("app_version"),
-                    "git": application_metadata.get("github_url"),
-                },
+                json=payload,
                 timeout=10,
             )
             response.raise_for_status()
@@ -113,21 +117,15 @@ def register(
     """
     Register the app in IAM and return service credentials.
     """
-    if env not in ENVIRONMENTS:
-        typer.secho(
-            f"Error: env must be one of: {', '.join(ENVIRONMENTS)}",
-            fg=typer.colors.RED,
-            bold=True,
-        )
-        raise typer.Exit(code=1)
+    handle_env_error(env)
     typer.secho("📦 Registering a new application...", fg=typer.colors.BRIGHT_BLUE)
     config = load_config()
-    api = APIClient(base_url=IAM_BASE_URL[env], env=env)
+    api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env)
     print("base url:", api.base_url)
     print("env: ", api.env)
     application_details = create_application(api, config)
 
-    config["application"][f"application_uid_{env}"] = application_details.get("id")
+    config["application"]["application_uid"] = application_details.get("id")
     save_config(config)
     typer.secho(
         f"📄 Updated application_uid in config file: {CONFIG_FILE}",

@@ -16,6 +16,24 @@ def create_lifecycle_folder():
     return lifecycle_path
 
 
+def create_lifecycle_envs_folder(lifecycle_path):
+    """
+    Create the lifecycle_envs folder inside the lifecycle folder and populate it with empty environment files (with example comment).
+    """
+    env_folder = lifecycle_path / "lifecycle_envs"
+    env_folder.mkdir(exist_ok=True)
+    env_files = {
+        "dev.env": "# Example: CONNECTOR_NAME=dev-connector\n",
+        "nprd.env": "# Example: CONNECTOR_NAME=nprd-connector\n",
+        "prod.env": "# Example: CONNECTOR_NAME=prod-connector\n",
+    }
+    for filename, content in env_files.items():
+        env_path = env_folder / filename
+        if not env_path.exists():
+            with open(env_path, "w") as f:
+                f.write(content)
+
+
 def fetch_schema(api, schema_name):
     """
     Fetch the schema from the API.
@@ -57,6 +75,7 @@ def init():
     Initializes and writes app metadata to a YAML config file.
     """
     lifecycle_path = create_lifecycle_folder()
+    create_lifecycle_envs_folder(lifecycle_path)
     api = APIClient()
     print("base url:", api.base_url)
     print("env: ", api.env)

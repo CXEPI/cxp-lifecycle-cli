@@ -1,4 +1,5 @@
 import typer
+from cli.config import ENVIRONMENTS
 
 
 def handle_request_error(error):
@@ -15,3 +16,13 @@ def handle_request_error(error):
             typer.secho(str(error.response.json()), fg=typer.colors.RED)
         except Exception:
             typer.secho(error.response.text, fg=typer.colors.RED)
+
+
+def handle_env_error(env: str):
+    if env not in ENVIRONMENTS:
+        typer.secho(
+            f"Error: env must be one of: {', '.join(ENVIRONMENTS)}",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+        raise typer.Exit(code=1)
