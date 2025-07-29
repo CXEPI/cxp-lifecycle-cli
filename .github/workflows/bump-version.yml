@@ -3,7 +3,7 @@ name: Bump Version
 on:
   push:
     branches:
-      - main
+      - "*"
     paths-ignore:
       - 'pyproject.toml'  # Avoid loops from the version bump commit itself
 
