@@ -17,6 +17,7 @@ jsonschema = "^4.24.0"
 python-dotenv = "^1.1.0"
 pydantic-settings = "^2.9.1"
 packaging = "^25.0"
+tomlkit = "^0.13.3"
 
 
 [tool.poetry.scripts]
