@@ -57,11 +57,11 @@ def create_service_folders(lifecycle_path, core_services, api):
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
-        if service == "iam":
-            iam_schema = fetch_schema(api, "iam.json")
-            iam_schema_path = service_path / "iam.json"
-            schema_json = json.dumps(iam_schema, indent=2)
-            with open(iam_schema_path, "w", encoding="utf-8") as schema_file:
+        if service == "iam" or service == "baqs":
+            schema = fetch_schema(api, f"{service}.json")
+            schema_path = service_path / f"{service}.json"
+            schema_json = json.dumps(schema, indent=2)
+            with open(schema_path, "w", encoding="utf-8") as schema_file:
                 schema_file.write(schema_json)
 
     return {

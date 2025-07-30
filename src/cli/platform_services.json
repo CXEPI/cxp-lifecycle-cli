@@ -1,0 +1,70 @@
+{
+  "sandbox": [
+    {
+      "name": "Audit Log",
+      "role_id": "bb20eed3-0ebc-41ac-8fd6-adf092259ca1",
+      "role_name": "WRITER"
+    },
+    {
+      "name": "Email Service",
+      "role_id": "4ec66ab4-7b54-469a-b7a1-177aa2e9681b",
+      "role_name": "EMAILSENDER"
+    },
+    {
+      "name": "Lifecycle Deployment Service",
+      "role_id": "6ed4360b-c85d-4c47-8b62-c08feb99838e",
+      "role_name": "APPLICATION_DEVELOPER"
+    }
+  ],
+  "dev": [
+    {
+      "name": "Audit Log",
+      "role_id": "bb20eed3-0ebc-41ac-8fd6-adf092259ca1",
+      "role_name": "WRITER"
+    },
+    {
+      "name": "Email Service",
+      "role_id": "4ec66ab4-7b54-469a-b7a1-177aa2e9681b",
+      "role_name": "EMAILSENDER"
+    },
+    {
+      "name": "Lifecycle Deployment Service",
+      "role_id": "941c33eb-fab6-4fa1-8a59-a241bdc8e295",
+      "role_name": "APPLICATION_DEVELOPER"
+    }
+  ],
+  "nprd": [
+    {
+      "name": "Audit Log",
+      "role_id": "bb20eed3-0ebc-41ac-8fd6-adf092259ca1",
+      "role_name": "WRITER"
+    },
+    {
+      "name": "Email Service",
+      "role_id": "4ec66ab4-7b54-469a-b7a1-177aa2e9681b",
+      "role_name": "EMAILSENDER"
+    },
+    {
+      "name": "Lifecycle Deployment Service",
+      "role_id": "941c33eb-fab6-4fa1-8a59-a241bdc8e295",
+      "role_name": "APPLICATION_DEVELOPER"
+    }
+  ],
+  "prod": [
+    {
+      "name": "Audit Log",
+      "role_id": "bb20eed3-0ebc-41ac-8fd6-adf092259ca1",
+      "role_name": "WRITER"
+    },
+    {
+      "name": "Email Service",
+      "role_id": "4ec66ab4-7b54-469a-b7a1-177aa2e9681b",
+      "role_name": "EMAILSENDER"
+    },
+    {
+      "name": "Lifecycle Deployment Service",
+      "role_id": "941c33eb-fab6-4fa1-8a59-a241bdc8e295",
+      "role_name": "APPLICATION_DEVELOPER"
+    }
+  ]
+}
