@@ -7,7 +7,6 @@ from cli.config import (
     CONFIG_FILE,
     BASE_URL_BY_ENV,
     ENVIRONMENTS,
-    get_platform_services,
 )
 from cli.helpers.api_client import APIClient
 from cli.helpers.errors import handle_request_error, handle_env_error
@@ -60,6 +59,21 @@ def create_application(api, config):
             typer.secho("❌ Failed to create application.", fg=typer.colors.RED)
             handle_request_error(error)
             raise typer.Exit(code=1)
+
+
+def get_platform_services(env):
+    """Get platform services for the specified environment"""
+    api = APIClient()
+    response = api.get("/schemas/get_platform_services")
+    if response.status_code != 200:
+        typer.secho(
+            f"✘ Failed to fetch platform services: {response.status_code} - {response.reason}",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+        raise typer.Exit(1)
+    platform_services = response.json()
+    return platform_services.get(env, platform_services.get("dev", []))
 
 
 def assign_roles(api, application_details, env):

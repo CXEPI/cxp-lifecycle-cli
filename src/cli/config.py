@@ -1,8 +1,6 @@
 import os
 from dotenv import load_dotenv
 from enum import Enum
-from pathlib import Path
-import json
 
 load_dotenv()
 
@@ -42,18 +40,3 @@ def get_deployment_base_url(env: str) -> str:
         )
 
     return f"{BASE_URL_BY_ENV[env]}/lifecycle/api/v1/deployment"
-
-
-def load_platform_services():
-    cli_package_dir = Path(__file__).parent
-    with open(f"{cli_package_dir / 'platform_services.json'}", "r") as f:
-        PLATFORM_SERVICES_BY_ENV = json.load(f)
-        return PLATFORM_SERVICES_BY_ENV
-
-
-PLATFORM_SERVICES_BY_ENV = load_platform_services()
-
-
-def get_platform_services(env):
-    """Get platform services for the specified environment"""
-    return PLATFORM_SERVICES_BY_ENV.get(env, PLATFORM_SERVICES_BY_ENV.get("dev", []))
