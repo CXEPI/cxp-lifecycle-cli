@@ -3,7 +3,11 @@ import base64
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import requests
-from cli.config import CONFIG_FILE, PLATFORM_SERVICES, BASE_URL_BY_ENV, ENVIRONMENTS
+from cli.config import (
+    CONFIG_FILE,
+    BASE_URL_BY_ENV,
+    ENVIRONMENTS,
+)
 from cli.helpers.api_client import APIClient
 from cli.helpers.errors import handle_request_error, handle_env_error
 from cli.helpers.file import load_config, save_config
@@ -57,17 +61,34 @@ def create_application(api, config):
             raise typer.Exit(code=1)
 
 
-def assign_roles(api, application_details):
+def get_platform_services(env):
+    """Get platform services for the specified environment"""
+    api = APIClient()
+    response = api.get("/schemas/get_platform_services")
+    if response.status_code != 200:
+        typer.secho(
+            f"✘ Failed to fetch platform services: {response.status_code} - {response.reason}",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+        raise typer.Exit(1)
+    platform_services = response.json()
+    return platform_services.get(env, platform_services.get("dev", []))
+
+
+def assign_roles(api, application_details, env):
     """
     Assign roles for platform services to the application.
     """
     client_id = application_details.get("clientId")
     assign_roles_url = f"/cxp-iam/api/v1/tenants/users/{client_id}/assignRoles"
+    services = get_platform_services(env)
     typer.secho(
-        f"🔑 Assigning Roles for Platform services {', '.join(service['name'] for service in PLATFORM_SERVICES)}...",
+        f"🔑 Assigning Roles for Platform services in {env} environment: {', '.join(service['name'] for service in services)}...",
         fg=typer.colors.CYAN,
     )
-    for service in PLATFORM_SERVICES:
+
+    for service in services:
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -132,5 +153,5 @@ def register(
         fg=typer.colors.GREEN,
     )
 
-    assign_roles(api, application_details)
+    assign_roles(api, application_details, env)
     generate_service_credentials(application_details)

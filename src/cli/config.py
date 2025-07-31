@@ -7,18 +7,6 @@ load_dotenv()
 
 CONFIG_FILE = "lifecycle_config.yaml"
 
-PLATFORM_SERVICES = [
-    {
-        "name": "Audit Log",
-        "role_id": "bb20eed3-0ebc-41ac-8fd6-adf092259ca1",
-        "role_name": "WRITER",
-    },
-    {
-        "name": "Email Service",
-        "role_id": "4ec66ab4-7b54-469a-b7a1-177aa2e9681b",
-        "role_name": "EMAILSENDER",
-    },
-]
 
 BACKEND_BASE_URL = f"{os.getenv('CXP_LIFECYCLE_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/backend"
 ENV = os.getenv("ENV", "dev")

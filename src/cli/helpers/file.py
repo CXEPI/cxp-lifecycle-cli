@@ -46,17 +46,17 @@ def inject_env_into_json_schema(schema_path: str, env_vars: dict) -> str:
         elif isinstance(obj, list):
             return [replace_in_obj(item) for item in obj]
         elif isinstance(obj, str):
-            # Replace ${VAR_NAME} with env_vars[VAR_NAME]
+            # Replace ${LC.VAR_NAME} with env_vars[VAR_NAME]
             def replacer(match):
                 var_name = match.group(1)
                 if var_name in env_vars:
                     return env_vars[var_name]
                 else:
                     raise ValueError(
-                        f"Environment variable '${{{var_name}}}' is not defined in the environment file"
+                        f"Environment variable '{var_name}' is not defined in the environment file"
                     )
 
-            return re.sub(r"\$\{([A-Za-z0-9_]+)\}", replacer, obj)
+            return re.sub(r"\$\{LC\.([A-Za-z0-9_]+)\}", replacer, obj)
         else:
             return obj
 
