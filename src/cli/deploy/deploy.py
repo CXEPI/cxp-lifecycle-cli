@@ -115,12 +115,12 @@ def deploy(env: str = typer.Argument("dev")) -> None:
     """
     Deploy the application with the given deployment ID and environment.
     """
-    if not ENABLE_ALL_ENVIRNMENTS and env != "dev":
-        typer.secho(
-            f"You can only deploy to 'dev' environment using the cli tool.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
+    # if not ENABLE_ALL_ENVIRNMENTS and (env != "dev" and env != "sandbox"):
+    #     typer.secho(
+    #         f"You can only deploy to 'dev' environment using the cli tool.",
+    #         fg=typer.colors.RED,
+    #     )
+    #     raise typer.Exit(1)
     handle_env_error(env)
     deployment_id = uuid.uuid4()
     typer.secho(
