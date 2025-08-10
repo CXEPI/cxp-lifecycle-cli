@@ -7,7 +7,9 @@ class APIClient:
     def __init__(self, base_url: str = None, env: str = None):
         self.base_url = base_url if base_url else BACKEND_BASE_URL
         self.env = env if env else ENV
-        self.service_credentials = general_config.cx_cli_service_accounts_credentials.get(self.env, "")
+        self.service_credentials = (
+            general_config.cx_cli_service_accounts_credentials.get(self.env, "")
+        )
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -32,3 +34,6 @@ class APIClient:
 
     def delete(self, endpoint: str, **kwargs):
         return self.session.delete(self._build_url(endpoint), **kwargs)
+
+    def get_headers(self):
+        return dict(self.session.headers)
