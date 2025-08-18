@@ -57,6 +57,40 @@ def create_service_folders(lifecycle_path, core_services, api):
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
+        if service == "data_fabric":
+
+            folders = [
+                "connectors",
+                "etl_instances",
+                "etl_templates",
+                "tables",
+            ]
+            for folder in folders:
+                (service_path / folder).mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{folder}/{folder}_example.json")
+                schema_path = service_path / folder / f"{folder}_example.json"
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
+            snacks_path = service_path / "data_models" / "snacks"
+            snacks_folders = ["entity, relationships", "snacks"]
+            for folder in snacks_folders:
+                (snacks_path / folder).mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}_example.json")
+                schema_path = snacks_path / folder / f"{folder}_example.json"
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
+            files = ["metadata.json", "snacks.json", "relationships.json"]
+            for file in files:
+                schema = fetch_schema(api, f"data_models/snacks/{file}")
+                schema_path = snacks_path / file
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
         if service == "iam" or service == "baqs":
             schema = fetch_schema(api, f"{service}.json")
             schema_path = service_path / f"{service}.json"
