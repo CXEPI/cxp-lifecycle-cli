@@ -74,7 +74,7 @@ def create_service_folders(lifecycle_path, core_services, api):
                     schema_file.write(schema_json)
 
             snacks_path = service_path / "data_models" / "snacks"
-            snacks_folders = ["entity, relationships", "type"]
+            snacks_folders = ["entity, relationship", "type"]
             for folder in snacks_folders:
                 (snacks_path / folder).mkdir(parents=True, exist_ok=True)
                 schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}_example.json")
