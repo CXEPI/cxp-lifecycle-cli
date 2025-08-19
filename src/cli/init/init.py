@@ -38,14 +38,18 @@ def fetch_schema(api, schema_name):
     """
     Fetch the schema from the API.
     """
-    response = api.get(f"/schemas/schema/{schema_name}")
+    if '/' in schema_name:
+        path, schema_name = schema_name.rsplit('/', 1)
+        response = api.get(f"/schemas/schema/{schema_name}?path={path}")
+    else:
+        response = api.get(f"/schemas/schema/{schema_name}")
     if response.status_code != 200:
         typer.secho(
             f"✘ Failed to fetch schema {schema_name}: {response.status_code} - {response.reason}",
             fg=typer.colors.RED,
             bold=True,
         )
-        raise typer.Exit(1)
+        return {}
     return response.json()
 
 
@@ -56,6 +60,40 @@ def create_service_folders(lifecycle_path, core_services, api):
     for service in core_services:
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
+
+        if service == "data_fabric":
+
+            folders = [
+                "connectors",
+                "etl_instances",
+                "etl_templates",
+                "tables",
+            ]
+            for folder in folders:
+                (service_path / folder).mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{folder}/{folder}_example.json")
+                schema_path = service_path / folder / f"{folder}_example.json"
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
+            snacks_path =  Path("data_models") / "snacks"
+            snacks_folders = ["entity", "relationship", "type"]
+            for folder in snacks_folders:
+                (service_path / snacks_path / folder).mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}_example.json")
+                schema_path = service_path / snacks_path / folder / f"{folder}_example.json"
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
+            files = ["metadata.json", "snacks.json", "relationships.json"]
+            for file in files:
+                schema = fetch_schema(api, f"data_models/snacks/{file}")
+                schema_path = service_path / snacks_path / file
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
 
         if service == "iam" or service == "baqs":
             schema = fetch_schema(api, f"{service}.json")
@@ -80,6 +118,8 @@ def init():
     print("base url:", api.base_url)
     print("env: ", api.env)
     schema = fetch_schema(api, "config.json")
+    if schema == {}:
+        raise typer.Exit(1)
 
     application = prompt_application(schema)
     core_services = prompt_core_services(schema)
