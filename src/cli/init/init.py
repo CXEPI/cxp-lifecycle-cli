@@ -1,5 +1,4 @@
 import json
-
 import typer
 from pathlib import Path
 from cli.helpers.api_client import APIClient
@@ -18,7 +17,8 @@ def create_lifecycle_folder():
 
 def create_lifecycle_envs_folder(lifecycle_path):
     """
-    Create the lifecycle_envs folder inside the lifecycle folder and populate it with empty environment files (with example comment).
+    Create the lifecycle_envs folder inside the lifecycle folder and populate it with empty environment files
+    (with example comment).
     """
     env_folder = lifecycle_path / "lifecycle_envs"
     env_folder.mkdir(exist_ok=True)
@@ -57,7 +57,7 @@ def create_service_folders(lifecycle_path, core_services, api):
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
-        if service == "iam" or service == "baqs":
+        if service  in ("iam","baqs","agent"):
             schema = fetch_schema(api, f"{service}.json")
             schema_path = service_path / f"{service}.json"
             schema_json = json.dumps(schema, indent=2)
@@ -92,7 +92,7 @@ def init():
     }
 
     save_config(config)
-    typer.secho(f"Created lifecycle folders and config file", fg=typer.colors.GREEN)
+    typer.secho("Created lifecycle folders and config file", fg=typer.colors.GREEN)
 
     if core_services:
         typer.secho(
