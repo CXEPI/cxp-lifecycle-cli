@@ -12,33 +12,6 @@ from cli.helpers.errors import handle_env_error
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
 
 
-@deploy_commands_app.command("get-status")
-def get_status(
-    deployment_id: str = typer.Argument(...), env: str = typer.Argument("dev")
-) -> None:
-    handle_env_error(env)
-    typer.secho("Getting Status for deployment", fg=typer.colors.BRIGHT_BLUE)
-    api = APIClient(base_url=get_deployment_base_url(env), env=env)
-    response = api.get(f"/status/deployment/get/{deployment_id}")
-    if response.status_code == 200:
-        status = response.json()["services"]
-        if not status:
-            typer.secho(
-                "No services found for this deployment.", fg=typer.colors.BRIGHT_YELLOW
-            )
-            return
-        for service, data in status.items():
-            typer.secho(
-                f" {service}: {data['deployment_status']} {data['failure_reason'] if data['failure_reason'] else ''}",
-                fg=typer.colors.BRIGHT_CYAN,
-            )
-    else:
-        typer.secho(
-            f"Failed to get deployment status: {response.text}",
-            fg=typer.colors.BRIGHT_RED,
-        )
-
-
 def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict, list]:
     try:
         config = load_config()
@@ -56,10 +29,17 @@ def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict,
                     for file in files:
                         full_path = os.path.join(root, file)
                         if os.path.isfile(full_path):
-                            api = APIClient(base_url=get_deployment_base_url(env), env=env)
+                            api = APIClient(
+                                base_url=get_deployment_base_url(env), env=env
+                            )
                             response = api.post(
                                 "s3/generate_presigned_url",
-                                json={"key": os.path.join(key_prefix, os.path.relpath(full_path, folder_path))},
+                                json={
+                                    "key": os.path.join(
+                                        key_prefix,
+                                        os.path.relpath(full_path, folder_path),
+                                    )
+                                },
                                 headers={"Content-Type": "application/json"},
                             )
                             if response.status_code != 200:
@@ -100,21 +80,21 @@ def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict,
                                 raise typer.Exit(1)
                 services_payload[service] = {"configuration_file_path": key_prefix}
 
-        if not services_to_deploy:
-            typer.secho(
-                "No services were selected for deployment. At least one service must be selected.",
-                fg=typer.colors.BRIGHT_MAGENTA,
-            )
-            raise typer.Exit(0)
-
-        return services_payload, services_to_deploy
-
     except Exception as e:
         typer.secho(f"An error occurred: {str(e)}", fg=typer.colors.BRIGHT_RED)
         raise typer.Exit(1)
 
+    if not services_to_deploy:
+        typer.secho(
+            "No services were selected for deployment. At least one service must be selected.",
+            fg=typer.colors.BRIGHT_MAGENTA,
+        )
+        raise typer.Exit(0)
 
-@deploy_commands_app.command("deploy")
+    return services_payload, services_to_deploy
+
+
+@deploy_commands_app.command("run")
 def deploy(env: str = typer.Argument("dev")) -> None:
     """
     Deploy the application with the given deployment ID and environment.
@@ -133,6 +113,12 @@ def deploy(env: str = typer.Argument("dev")) -> None:
     )
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
+    if not app_id:
+        typer.secho(
+            "Application ID not found in config. Please run 'register' command first.",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
     api = APIClient(base_url=get_deployment_base_url(env), env=env)
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env
@@ -154,3 +140,170 @@ def deploy(env: str = typer.Argument("dev")) -> None:
         return
 
     typer.secho("Deployment initiated successfully.", fg=typer.colors.BRIGHT_GREEN)
+
+
+@deploy_commands_app.command("get-status")
+def get_status(
+    deployment_id: str = typer.Argument(...),
+    env: str = typer.Argument("dev"),
+    watch: bool = typer.Option(
+        False, "--watch", "-w", help="Watch deployment status in real-time"
+    ),
+) -> None:
+    """
+    Get the status of a deployment. Use --watch flag to stream status updates in real-time.
+    """
+    handle_env_error(env)
+
+    if not watch:
+        # Single status request
+        typer.secho("Getting Status for deployment", fg=typer.colors.BRIGHT_BLUE)
+        _display_deployment_status(deployment_id, env)
+        return
+
+    # Streaming mode using SSE
+    try:
+        import time
+        from sseclient import SSEClient
+        from datetime import datetime
+        import json
+
+        api = APIClient(base_url=get_deployment_base_url(env), env=env)
+
+        typer.secho(
+            f"Streaming deployment status for ID: {deployment_id} (Ctrl+C to exit)",
+            fg=typer.colors.BRIGHT_BLUE,
+        )
+        typer.secho("=" * 50, fg=typer.colors.BRIGHT_BLUE)
+
+        # Connect to SSE endpoint
+        stream_url = (
+            f"{get_deployment_base_url(env)}/status/deployment/stream/{deployment_id}"
+        )
+        headers = api.get_headers()
+
+        last_update_time = datetime.now()
+        for event in SSEClient(stream_url, headers=headers):
+            if not event.data:
+                continue
+
+            try:
+                status_data = json.loads(event.data)
+
+                if "info" in status_data and "Connection closed" in status_data["info"]:
+                    typer.secho(
+                        "\nStream closed: Connection timeout after 5 minutes",
+                        fg=typer.colors.BRIGHT_YELLOW,
+                    )
+                    break
+
+                if (
+                    "error" in status_data
+                    and status_data["error"] == "Deployment not found"
+                ):
+                    typer.secho(
+                        "\nDeployment not found",
+                        fg=typer.colors.BRIGHT_RED,
+                    )
+                    break
+
+                # Clear screen for better visibility
+                os.system("cls" if os.name == "nt" else "clear")
+                typer.secho(
+                    f"Deployment ID: {deployment_id} (Environment: {env})",
+                    fg=typer.colors.BRIGHT_BLUE,
+                )
+                typer.secho(
+                    "Live status updates. Press Ctrl+C to exit.",
+                    fg=typer.colors.BRIGHT_BLUE,
+                )
+                typer.secho("=" * 50, fg=typer.colors.BRIGHT_BLUE)
+
+                services = status_data.get("services", {})
+
+                if not services:
+                    typer.secho(
+                        "No services found for this deployment.",
+                        fg=typer.colors.BRIGHT_YELLOW,
+                    )
+                    continue
+
+                for service, data in services.items():
+                    status_color = _get_status_color(data.get("deployment_status"))
+                    failure_reason = (
+                        f" - {data['failure_reason']}"
+                        if data.get("failure_reason")
+                        else ""
+                    )
+                    message = f" {service}: {data['deployment_status']}{failure_reason}"
+                    typer.secho(message, fg=status_color)
+
+                # Add timestamp
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                typer.secho(f"\nLast update: {timestamp}", fg=typer.colors.BRIGHT_BLACK)
+
+            except json.JSONDecodeError:
+                typer.secho(
+                    f"Error parsing update: {event.data}", fg=typer.colors.BRIGHT_RED
+                )
+
+    except ImportError:
+        typer.secho(
+            "SSE client library not found. Install with: pip install sseclient-py",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        return
+    except KeyboardInterrupt:
+        typer.secho(
+            "\nStopped watching deployment status.", fg=typer.colors.BRIGHT_BLUE
+        )
+    except Exception as e:
+        typer.secho(
+            f"Error streaming deployment status: {str(e)}", fg=typer.colors.BRIGHT_RED
+        )
+
+
+def _display_deployment_status(deployment_id: str, env: str) -> None:
+    """Display deployment status"""
+    api = APIClient(base_url=get_deployment_base_url(env), env=env)
+    response = api.get(f"/status/deployment/get/{deployment_id}")
+
+    if response.status_code != 200:
+        typer.secho(
+            f"Failed to get deployment status: {response.text}",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        return
+
+    status = response.json().get("services", {})
+
+    if not status:
+        typer.secho(
+            "No services found for this deployment.", fg=typer.colors.BRIGHT_YELLOW
+        )
+        return
+
+    for service, data in status.items():
+        status_color = _get_status_color(data.get("deployment_status"))
+        failure_reason = (
+            f" - {data['failure_reason']}" if data.get("failure_reason") else ""
+        )
+        message = f" {service}: {data['deployment_status']}{failure_reason}"
+        typer.secho(message, fg=status_color)
+
+
+def _get_status_color(status: str) -> str:
+    """Get the appropriate color for a status"""
+    if not status:
+        return typer.colors.BRIGHT_CYAN
+
+    if "Done" in status or "Succeeded" in status:
+        return typer.colors.BRIGHT_GREEN
+    elif "Failed" in status or "REJECTED" in status or "ERROR" in status:
+        return typer.colors.BRIGHT_RED
+    elif "Progress" in status or "Pending" in status or "RECEIVED" in status:
+        return typer.colors.BRIGHT_YELLOW
+    elif "Cancel" in status:
+        return typer.colors.BRIGHT_MAGENTA
+    else:
+        return typer.colors.BRIGHT_CYAN

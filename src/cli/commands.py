@@ -19,7 +19,7 @@ def version_check_callback():
             f"⬆️  A new version is available: {version_manager.latest_version}, and you are using {version_manager.installed_version}."
         )
         typer.echo(
-            "please update to the latest version: pip install git+https://github.com/CXEPI/cxp-lifecycle.git#subdirectory=cli"
+            "please update to the latest version: pip install git+https://github.com/CXEPI/cxp-lifecycle-cli.git"
         )
         raise typer.Exit()
 
