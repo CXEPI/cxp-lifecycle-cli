@@ -72,15 +72,33 @@ def create_service_folders(lifecycle_path, core_services, api):
             ]
             for folder in folders:
                 (service_path / folder).mkdir(parents=True, exist_ok=True)
-                schema = fetch_schema(api, f"{folder}/{folder}.example.json")
-                schema_path = service_path / folder / f"{folder}.example.json"
+                (service_path / folder / "_local").mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{folder}/{folder}_example.json")
+                schema_path = service_path / folder / f"{folder}_example.json.example"
                 schema_json = json.dumps(schema, indent=2)
                 with open(schema_path, "w", encoding="utf-8") as schema_file:
                     schema_file.write(schema_json)
 
+            data_model_path =  Path("data_models") / "model_name_example"
+            data_model_folders = ["entity", "relationship", "type"]
+            for folder in data_model_folders:
+                (service_path / data_model_path / folder).mkdir(parents=True, exist_ok=True)
+                (service_path / data_model_path / folder / "_local").mkdir(parents=True, exist_ok=True)
+                schema = fetch_schema(api, f"{data_model_path}/{folder}/{folder}_example.json")
+                schema_path = service_path / data_model_path / folder / f"{folder}_example.json.example"
+                schema_json = json.dumps(schema, indent=2)
+                with open(schema_path, "w", encoding="utf-8") as schema_file:
+                    schema_file.write(schema_json)
+
+            schema = fetch_schema(api, f"data_models/model_name_example/model_name_metadata.json")
+            schema_path = service_path / data_model_path / "metadata.json.example"
+            schema_json = json.dumps(schema, indent=2)
+            with open(schema_path, "w", encoding="utf-8") as schema_file:
+                schema_file.write(schema_json)
+
         if service == "iam" or service == "baqs":
             schema = fetch_schema(api, f"{service}.json")
-            schema_path = service_path / f"{service}.json"
+            schema_path = service_path / f"{service}.json.example"
             schema_json = json.dumps(schema, indent=2)
             with open(schema_path, "w", encoding="utf-8") as schema_file:
                 schema_file.write(schema_json)
