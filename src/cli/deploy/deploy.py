@@ -228,6 +228,12 @@ def get_status(
                     )
                     continue
 
+                # Detect validation failure using the services status map
+                has_validation_failed = any(
+                    data.get("deployment_status") == "Validation Failed"
+                    for data in services.values()
+                )
+
                 for service, data in services.items():
                     status_color = _get_status_color(data.get("deployment_status"))
                     failure_reason = (
@@ -237,6 +243,10 @@ def get_status(
                     )
                     message = f" {service}: {data['deployment_status']}{failure_reason}"
                     typer.secho(message, fg=status_color)
+
+                if has_validation_failed:
+                    typer.secho("\nDeployment Failed Due To Validation Failure", fg=typer.colors.BRIGHT_RED)
+                    break
 
                 # Add timestamp
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
