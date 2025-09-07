@@ -54,58 +54,74 @@ def fetch_schema(api, schema_name):
             bold=True,
         )
         return {}
-    return response.json()
+    new_json = response.json()
+    if schema_name in ['etl_instance', 'etl_template']:
+        new_json["example_instance"] = ""
+    else:
+        new_json["example_instance"] = {}
+    new_json["json_schema"] = response.json()
+    return new_json
 
+
+def write_schema_files(schema_data: dict, schema_path: Path, example_path: Path):
+    """
+    Write schema and example files.
+    - json_schema is always JSON
+    - example_instance may be JSON (dict) or YAML (string)
+    """
+    schema_json = json.dumps(schema_data["json_schema"], indent=2)
+    schema_path.write_text(schema_json, encoding="utf-8")
+
+    example_instance = schema_data["example_instance"]
+    if isinstance(example_instance, str):
+        example_path = example_path.with_suffix(".yaml.example")
+        example_path.write_text(example_instance, encoding="utf-8")
+    else:
+        example_path = example_path.with_suffix(".json.example")
+        example_json = json.dumps(example_instance, indent=2)
+        example_path.write_text(example_json, encoding="utf-8")
 
 def create_service_folders(lifecycle_path, core_services, api):
     """
     Create folders for core services and fetch additional schemas if required.
     """
+    def process_schema(schema_name: str, base_path: Path, base_filename: str):
+        schema_data = fetch_schema(api, schema_name)
+        if not schema_data:
+            return
+        schema_path = base_path / f"{base_filename}_schema.json.example"
+        example_path = base_path / f"{base_filename}_example"  # suffix decided in write
+        write_schema_files(schema_data, schema_path, example_path)
+
     for service in core_services:
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
         if service == "data_fabric":
-
-            folders = [
-                "connectors",
-                "data_models",
-                "etl_instances",
-                "etl_templates",
-                "tables",
-            ]
+            folders = ["connectors", "data_models", "etl_instances", "etl_templates", "tables"]
             for folder in folders:
-                (service_path / folder).mkdir(parents=True, exist_ok=True)
-                (service_path / folder / "_local").mkdir(parents=True, exist_ok=True)
-                schema = fetch_schema(api, f"{folder}/{folder}_example.json")
-                schema_path = service_path / folder / f"{folder}_example.json.example"
-                schema_json = json.dumps(schema, indent=2)
-                with open(schema_path, "w", encoding="utf-8") as schema_file:
-                    schema_file.write(schema_json)
+                folder_path = service_path / folder
+                (folder_path / "_local").mkdir(parents=True, exist_ok=True)
+                process_schema(f"{folder}/{folder}_example.json", folder_path, folder)
 
-            data_model_path =  Path("data_models") / "model_name_example"
+            # Data model folders
+            data_model_path = service_path / "data_models" / "model_name_example"
             data_model_folders = ["entity", "relationship", "type"]
             for folder in data_model_folders:
-                (service_path / data_model_path / folder).mkdir(parents=True, exist_ok=True)
-                (service_path / data_model_path / folder / "_local").mkdir(parents=True, exist_ok=True)
-                schema = fetch_schema(api, f"{data_model_path}/{folder}/{folder}_example.json")
-                schema_path = service_path / data_model_path / folder / f"{folder}_example.json.example"
-                schema_json = json.dumps(schema, indent=2)
-                with open(schema_path, "w", encoding="utf-8") as schema_file:
-                    schema_file.write(schema_json)
+                folder_path = data_model_path / folder
+                (folder_path / "_local").mkdir(parents=True, exist_ok=True)
+                process_schema(f"data_models/model_name_example/{folder}/{folder}_example.json", folder_path, folder)
 
-            schema = fetch_schema(api, f"data_models/model_name_example/model_name_metadata.json")
-            schema_path = service_path / data_model_path / "metadata.json.example"
-            schema_json = json.dumps(schema, indent=2)
-            with open(schema_path, "w", encoding="utf-8") as schema_file:
-                schema_file.write(schema_json)
+            # Model metadata
+            process_schema(
+                "data_models/model_name_example/model_name_metadata.json",
+                data_model_path,
+                "model_name_metadata"
+            )
 
-        if service == "iam" or service == "baqs":
-            schema = fetch_schema(api, f"{service}.json")
-            schema_path = service_path / f"{service}.json.example"
-            schema_json = json.dumps(schema, indent=2)
-            with open(schema_path, "w", encoding="utf-8") as schema_file:
-                schema_file.write(schema_json)
+        else:
+            (service_path / "_local").mkdir(parents=True, exist_ok=True)
+            process_schema(f"{service}.json", service_path, service)
 
     return {
         service: str((lifecycle_path / service).relative_to(lifecycle_path.parent))
