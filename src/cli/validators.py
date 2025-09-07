@@ -1,8 +1,8 @@
 import os
 import typer
 from cli.settings import general_config
-
 import json
+from pathlib import Path
 
 
 class FileStructureError(Exception):
@@ -16,11 +16,11 @@ def creds_existance(file_path: str) -> bool:
     Validate that the credentials file exists and is a valid JSON.
     This is a placeholder for the actual validation logic.
     """
-    if general_config.cx_cli_service_accounts_credentials != {}:
-        print(f"Creds were given in the env vars")
-        return True
+    # Clear existing credentials to ensure we always load from file when explicitly provided
+    if file_path != general_config.creds_filename:
+        general_config.cx_cli_service_accounts_credentials = {}
 
-    print(f"Validating credentials file at {general_config.creds_filename}")
+    print(f"Validating credentials file at {file_path}")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Required config file '{file_path}' not found")
     try:
@@ -34,13 +34,18 @@ def creds_existance(file_path: str) -> bool:
                     "serviceAccounts must be a dictionary with environment keys"
                 )
 
+            # Store the credentials in general_config
             general_config.cx_cli_service_accounts_credentials = service_accounts
+            # Store the current creds file path in general_config
+            general_config.creds_filename = file_path
             print("Credentials file validated successfully.")
             return True
         else:
             raise KeyError(creds_file_keys)
     except KeyError as MissingData:
-        raise FileStructureError(f"Missing required {general_config.required_fields_in_credentials_file} in: {MissingData}")
+        raise FileStructureError(
+            f"Missing required {general_config.required_fields_in_credentials_file} in: {MissingData}"
+        )
     except json.decoder.JSONDecodeError as json_error:
         raise FileStructureError(
             f"Invalid JSON format in credentials file: {json_error}"
@@ -49,13 +54,34 @@ def creds_existance(file_path: str) -> bool:
         raise FileStructureError(f"Invalid credentials file structure: {error}")
 
 
-def validate_creds() -> None:
+def validate_creds(creds_path: str = None) -> None:
     """
-    Decorator that *always* verifies that creds file path exists
-    and passes validation on the creds file before executing `func`.
+    Validates that the credentials file exists and passes validation.
+
+    Args:
+        creds_path: Optional custom path to credentials file. If not provided,
+                    the default path from general_config will be used.
     """
+    # Simple caching to avoid redundant validation of the same path
+    # If we've already validated with this exact path and have credentials loaded, skip
+    last_path = getattr(general_config, "_last_validated_path", None)
+    if creds_path == last_path and general_config.cx_cli_service_accounts_credentials:
+        return
+
+    if creds_path:
+        # If creds_path is a directory, append "credentials.json" to it
+        path = Path(creds_path)
+        if path.is_dir():
+            file_path = os.path.join(creds_path, "credentials.json")
+        else:
+            file_path = creds_path
+    else:
+        file_path = general_config.creds_filename
+
     try:
-        creds_existance(general_config.creds_filename)
+        creds_existance(file_path)
+        # Remember this path to avoid duplicate validation
+        general_config._last_validated_path = creds_path
     except Exception as error:
         typer.secho(
             f"{error.__class__.__name__}: {error}", fg=typer.colors.RED, err=True
