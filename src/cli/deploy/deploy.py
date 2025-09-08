@@ -12,7 +12,9 @@ from cli.helpers.errors import handle_env_error
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
 
 
-def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict, list]:
+def upload_services_config_to_s3(
+    deployment_id, app_id, env: str, creds_path: str = None
+) -> tuple[dict, list]:
     try:
         config = load_config()
         lifecycle_path = Path("lifecycle")
@@ -30,7 +32,9 @@ def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict,
                         full_path = os.path.join(root, file)
                         if os.path.isfile(full_path):
                             api = APIClient(
-                                base_url=get_deployment_base_url(env), env=env
+                                base_url=get_deployment_base_url(env),
+                                env=env,
+                                creds_path=creds_path,
                             )
                             response = api.post(
                                 "s3/generate_presigned_url",
@@ -95,9 +99,19 @@ def upload_services_config_to_s3(deployment_id, app_id, env: str) -> tuple[dict,
 
 
 @deploy_commands_app.command("run")
-def deploy(env: str = typer.Argument("dev")) -> None:
+def deploy(
+    env: str = typer.Argument("dev"),
+    creds_path: str = typer.Option(
+        None,
+        help="Path to credentials file. If not provided, the default path will be used.",
+    ),
+) -> None:
     """
     Deploy the application with the given deployment ID and environment.
+
+    Args:
+        env: The environment to deploy to, defaults to 'dev'.
+        creds_path: Optional path to credentials file. If not provided, the default path will be used.
     """
     # if not ENABLE_ALL_ENVIRNMENTS and (env != "dev" and env != "sandbox"):
     #     typer.secho(
@@ -119,9 +133,11 @@ def deploy(env: str = typer.Argument("dev")) -> None:
             fg=typer.colors.BRIGHT_RED,
         )
         raise typer.Exit(1)
-    api = APIClient(base_url=get_deployment_base_url(env), env=env)
+    api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
     services_payload, services = upload_services_config_to_s3(
-        deployment_id, app_id, env
+        deployment_id, app_id, env, creds_path=creds_path
     )
     payload = {
         "deployment_id": str(deployment_id),
@@ -245,7 +261,10 @@ def get_status(
                     typer.secho(message, fg=status_color)
 
                 if has_validation_failed:
-                    typer.secho("\nDeployment Failed Due To Validation Failure", fg=typer.colors.BRIGHT_RED)
+                    typer.secho(
+                        "\nDeployment Failed Due To Validation Failure",
+                        fg=typer.colors.BRIGHT_RED,
+                    )
                     break
 
                 # Add timestamp

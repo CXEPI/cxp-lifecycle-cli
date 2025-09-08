@@ -26,7 +26,6 @@ def version_check_callback():
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context):
-    validate_creds()
     # version_check_callback()
     if ctx.invoked_subcommand is None:
         print(ctx.get_help())
