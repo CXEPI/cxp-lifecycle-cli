@@ -1,8 +1,7 @@
 import typer
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config
-from cli.config import get_deployment_base_url, ENVIRONMENTS
-
+from cli.config import get_deployment_base_url
 
 def cancel(
     deployment_id: str = typer.Argument(
@@ -11,12 +10,8 @@ def cancel(
         show_default=False,
         case_sensitive=False,
     ),
-        env: str = typer.Argument(
-            ...,
-            help=f"Environment (one of: {', '.join(ENVIRONMENTS)})",
-            show_default=False,
-            case_sensitive=False,
-        )):
+        env: str = typer.Argument("dev")
+):
     """
     Terminate the running deployment when it is in the validation phase.
     """
