@@ -13,7 +13,7 @@ deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functio
 
 
 def upload_services_config_to_s3(
-    deployment_id, app_id, env: str, creds_path: str = None
+    deployment_id, app_id, env: str, creds_path: str = None, deploy_all: bool = False
 ) -> tuple[dict, list]:
     try:
         config = load_config()
@@ -24,7 +24,9 @@ def upload_services_config_to_s3(
         services_to_deploy = []
 
         for service, folder_path in config.get("core_services", {}).items():
-            if typer.confirm(f"Do you want to deploy '{service}'?", default=True):
+            if deploy_all or typer.confirm(
+                f"Do you want to deploy '{service}'?", default=True
+            ):
                 services_to_deploy.append(service)
                 key_prefix = f"lifecycle/{app_id}/{deployment_id}/{service}"
                 for root, _, files in os.walk(folder_path):
@@ -105,6 +107,12 @@ def deploy(
         None,
         help="Path to credentials file. If not provided, the default path will be used.",
     ),
+    deploy_all: bool = typer.Option(
+        False,
+        "--deploy-all",
+        "-a",
+        help="Deploy all services without confirmation prompts",
+    ),
 ) -> None:
     """
     Deploy the application with the given deployment ID and environment.
@@ -112,6 +120,7 @@ def deploy(
     Args:
         env: The environment to deploy to, defaults to 'dev'.
         creds_path: Optional path to credentials file. If not provided, the default path will be used.
+        deploy_all: If True, deploy all services without confirmation prompts.
     """
     # if not ENABLE_ALL_ENVIRNMENTS and (env != "dev" and env != "sandbox"):
     #     typer.secho(
@@ -137,7 +146,7 @@ def deploy(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
     )
     services_payload, services = upload_services_config_to_s3(
-        deployment_id, app_id, env, creds_path=creds_path
+        deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
     payload = {
         "deployment_id": str(deployment_id),
