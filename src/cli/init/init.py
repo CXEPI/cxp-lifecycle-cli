@@ -59,58 +59,38 @@ def create_service_folders(lifecycle_path, core_services, api):
     """
     Create folders for core services and fetch additional schemas if required.
     """
+    def write_schema(file_path, schema_data, is_yaml=False):
+        with open(file_path, "w", encoding="utf-8") as schema_file:
+            if is_yaml:
+                yaml.dump(schema_data, schema_file, sort_keys=False)
+            else:
+                schema_file.write(json.dumps(schema_data, indent=2))
+
+    def create_and_populate_folder(base_path, folder_name, schema_name, is_yaml=False):
+        folder_path = base_path / folder_name
+        folder_path.mkdir(parents=True, exist_ok=True)
+        schema = fetch_schema(api, schema_name)
+        write_schema(folder_path / schema_name.split("/")[-1], schema, is_yaml)
+
     for service in core_services:
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
         if service == "data_fabric":
-            with open(service_path / service / "commands.txt", "w", encoding="utf-8") as schema_file:
-                schema_file.write("#Create Connector connectors/connectors.example.json")
-            folders = [
-                "connectors",
-                "etl_instances",
-                "etl_templates",
-                "tables",
-            ]
+            write_schema(service_path / "commands.txt", "#Create Connector connectors/connectors.example.json")
+            folders = ["connectors", "etl_instances", "etl_templates", "tables"]
             for folder in folders:
-                (service_path / folder).mkdir(parents=True, exist_ok=True)
-                if folder in ["etl_templates", "etl_instances"]:
-                    schema = fetch_schema(api, f"{folder}/{folder}.example.yaml")
-                    schema_path = service_path / folder / f"{folder}.example.yaml"
-                    with open(schema_path, "w", encoding="utf-8") as schema_file:
-                        yaml.dump(schema, schema_file, sort_keys=False)
-                else:
-                    schema = fetch_schema(api, f"{folder}/{folder}.example.json")
-                    schema_path = service_path / folder / f"{folder}.example.json"
-                    schema_json = json.dumps(schema, indent=2)
-                    with open(schema_path, "w", encoding="utf-8") as schema_file:
-                        schema_file.write(schema_json)
+                schema_name = f"{folder}/{folder}.example.yaml" if folder in ["etl_templates", "etl_instances"] else f"{folder}/{folder}.example.json"
+                create_and_populate_folder(service_path, folder, schema_name, folder in ["etl_templates", "etl_instances"])
 
-            (service_path / "data_models").mkdir(parents=True, exist_ok=True)
-            snacks_path =  Path("data_models") / "sample"
-            schema = fetch_schema(api, f"{snacks_path}/sample_model.example.json")
-            schema_path = service_path / snacks_path / f"sample_model.example.json"
-            schema_json = json.dumps(schema, indent=2)
-            with open(schema_path, "w", encoding="utf-8") as schema_file:
-                schema_file.write(schema_json)
-            snacks_folders = ["entity", "relationship", "type"]
-            for folder in snacks_folders:
-                folder_path = service_path / snacks_path / folder
-                folder_path.mkdir(parents=True, exist_ok=True)
-                schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}.example.json")
-                with open(folder_path / f"{folder}.example.json", "w", encoding="utf-8") as schema_file:
-                    schema_file.write(json.dumps(schema, indent=2))
-                if folder == "entity":
-                    schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}_second.example.json")
-                    with open(folder_path / f"{folder}_second.example.json", "w", encoding="utf-8") as schema_file:
-                        schema_file.write(json.dumps(schema, indent=2))
+            data_models_path = service_path / "data_models" / "sample"
+            data_models_path.mkdir(parents=True, exist_ok=True)
+            create_and_populate_folder(service_path, "data_models/sample", "data_models/sample/sample_model.example.json")
 
-        if service == "iam" or service == "baqs":
-            schema = fetch_schema(api, f"{service}.json")
+        if service in {"iam", "baqs"}:
             schema_path = service_path / f"{service}.json"
-            schema_json = json.dumps(schema, indent=2)
             with open(schema_path, "w", encoding="utf-8") as schema_file:
-                schema_file.write(schema_json)
+                schema_file.write(json.dumps(fetch_schema(api, f"{service}.json"), indent=2))
 
     return {
         service: str((lifecycle_path / service).relative_to(lifecycle_path.parent))
