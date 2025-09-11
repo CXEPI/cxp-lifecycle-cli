@@ -81,7 +81,7 @@ def assign_roles(api, application_details, env):
     Assign roles for platform services to the application.
     """
     client_id = application_details.get("clientId")
-    assign_roles_url = f"/cxp-iam/api/v1/tenants/users/{client_id}/assignRoles"
+    assign_roles_url = f"/cxp-iam/api/v1/users/{client_id}"
     services = get_platform_services(env)
     typer.secho(
         f"🔑 Assigning Roles for Platform services in {env} environment: {', '.join(service['name'] for service in services)}...",
@@ -99,9 +99,9 @@ def assign_roles(api, application_details, env):
             )
 
             try:
-                response = api.post(
+                response = api.put(
                     assign_roles_url,
-                    json=[{"id": service["role_id"], "name": service["role_name"]}],
+                    json={'status':"ACTIVE", 'assignRoles':[{"id": service["role_id"], "name": service["role_name"]}]},
                     timeout=10,
                 )
                 response.raise_for_status()
