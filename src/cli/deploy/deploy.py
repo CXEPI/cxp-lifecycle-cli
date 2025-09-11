@@ -5,7 +5,7 @@ import requests
 import typer
 from cli.config import get_deployment_base_url, ENABLE_ALL_ENVIRNMENTS
 from cli.helpers.api_client import APIClient
-from cli.helpers.file import load_config, load_env, inject_env_into_json_schema
+from cli.helpers.file import load_config, load_env, inject_env_into_schema
 from pathlib import Path
 from cli.helpers.errors import handle_env_error
 
@@ -56,8 +56,8 @@ def upload_services_config_to_s3(
                                 raise typer.Exit(1)
                             presigned_url = response.json().get("url")
                             # Inject env vars if JSON schema
-                            if file.endswith(".json"):
-                                injected_content = inject_env_into_json_schema(
+                            if file.endswith(".json") or file.endswith(".yaml"):
+                                injected_content = inject_env_into_schema(
                                     full_path, env_vars
                                 )
                                 upload_response = requests.put(
