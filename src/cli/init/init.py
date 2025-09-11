@@ -64,7 +64,7 @@ def create_service_folders(lifecycle_path, core_services, api):
         service_path.mkdir(parents=True, exist_ok=True)
 
         if service == "data_fabric":
-            with open("commands.txt", "w", encoding="utf-8") as schema_file:
+            with open(service_path / service / "commands.txt", "w", encoding="utf-8") as schema_file:
                 schema_file.write("#Create Connector connectors/connectors.example.json")
             folders = [
                 "connectors",
