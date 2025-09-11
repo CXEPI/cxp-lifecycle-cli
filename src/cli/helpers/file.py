@@ -35,10 +35,13 @@ def load_env(env_path: str) -> dict:
     return env_vars
 
 
-def inject_env_into_json_schema(schema_path: str, env_vars: dict) -> str:
+def inject_env_into_schema(schema_path: str, env_vars: dict) -> str:
     """Inject environment variables into all string values in a JSON schema file and return the modified content as a string."""
     with open(schema_path, "r") as f:
-        data = json.load(f)
+        if schema_path.endswith(".yaml") or schema_path.endswith(".yml"):
+            data = yaml.safe_load(f)
+        elif schema_path.endswith(".json"):
+            data = json.load(f)
 
     def replace_in_obj(obj):
         if isinstance(obj, dict):
@@ -61,4 +64,9 @@ def inject_env_into_json_schema(schema_path: str, env_vars: dict) -> str:
             return obj
 
     injected_data = replace_in_obj(data)
-    return json.dumps(injected_data, indent=2)
+    if schema_path.endswith(".json"):
+        return json.dumps(injected_data, indent=2)
+    elif schema_path.endswith(".yaml"):
+        return yaml.dump(injected_data, sort_keys=False)
+    return ""
+
