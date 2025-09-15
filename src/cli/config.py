@@ -8,8 +8,8 @@ load_dotenv()
 CONFIG_FILE = "lifecycle_config.yaml"
 
 
-BACKEND_BASE_URL = f"{os.getenv('CXP_LIFECYCLE_BASE_URL', 'https://dev.cxp.cisco.com')}/lifecycle/api/v1/backend"
-ENV = os.getenv("ENV", "dev")
+BACKEND_BASE_URL = f"{os.getenv('CXP_LIFECYCLE_BASE_URL', 'https://sbx.cxp.cisco.com')}/lifecycle/api/v1/backend"
+ENV = os.getenv("ENV", "sandbox")
 ENABLE_ALL_ENVIRNMENTS = os.getenv("ENABLE_ALL_ENVIRNMENTS", "false").lower() == "true"
 
 
