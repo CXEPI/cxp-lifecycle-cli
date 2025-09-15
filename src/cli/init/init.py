@@ -25,6 +25,7 @@ def create_lifecycle_envs_folder(lifecycle_path):
     env_folder = lifecycle_path / "lifecycle_envs"
     env_folder.mkdir(exist_ok=True)
     env_files = {
+        "sandbox.env": "# Example: CONNECTOR_NAME=sandbox-connector\n",
         "dev.env": "# Example: CONNECTOR_NAME=dev-connector\n",
         "nprd.env": "# Example: CONNECTOR_NAME=nprd-connector\n",
         "prod.env": "# Example: CONNECTOR_NAME=prod-connector\n",
