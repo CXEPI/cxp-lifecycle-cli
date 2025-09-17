@@ -142,7 +142,7 @@ def deploy(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
     )
     response = api.get(
-        f"/status/application{app_id}/inProgress", headers={"Content-Type": "application/json"}
+        f"/status/application/{app_id}/inProgress", headers={"Content-Type": "application/json"}
     )
     if response.status_code == 200:
         in_progress = response.json()
