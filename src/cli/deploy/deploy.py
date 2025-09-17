@@ -148,7 +148,9 @@ def deploy(
         in_progress = response.json()
         if in_progress:
             typer.secho(
-                f"An existing deployment is in progress for application_id {app_id}. Please wait for it to complete before starting a new deployment.",
+                f"An existing deployment is already in progress for application_id {app_id}."
+                " Please wait until it finishes before starting a new deployment,"
+                " or use the cancel command to stop the current deployment (only possible during the validation phase)",
                 fg=typer.colors.BRIGHT_RED,
             )
             raise typer.Exit(1)
