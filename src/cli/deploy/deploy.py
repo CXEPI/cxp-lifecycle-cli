@@ -129,11 +129,6 @@ def deploy(
     #     )
     #     raise typer.Exit(1)
     handle_env_error(env)
-    deployment_id = uuid.uuid4()
-    typer.secho(
-        f"Deploying application with deployment ID: {deployment_id}",
-        fg=typer.colors.BRIGHT_BLUE,
-    )
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
     if not app_id:
@@ -142,9 +137,30 @@ def deploy(
             fg=typer.colors.BRIGHT_RED,
         )
         raise typer.Exit(1)
+
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
     )
+    response = api.get(
+        f"/status/application{app_id}/inProgress", headers={"Content-Type": "application/json"}
+    )
+    if response.status_code == 200:
+        in_progress = response.json()
+        if in_progress:
+            typer.secho(
+                f"An existing deployment is already in progress for application_id {app_id}.\n"
+                " Please wait until it finishes before starting a new deployment,"
+                " or use the cancel command to stop the current deployment (only possible during the validation phase)",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            raise typer.Exit(1)
+
+    deployment_id = uuid.uuid4()
+    typer.secho(
+        f"Deploying application with deployment ID: {deployment_id}",
+        fg=typer.colors.BRIGHT_BLUE,
+    )
+
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
