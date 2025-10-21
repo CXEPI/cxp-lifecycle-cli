@@ -107,7 +107,7 @@ def create_service_folders(lifecycle_path, core_services, api):
                     with open(folder_path / f"{folder}_second.example.json", "w", encoding="utf-8") as schema_file:
                         schema_file.write(json.dumps(schema, indent=2))
 
-        if service == "iam" or service == "baqs":
+        if service == "iam" or service == "baqs" or service == "agent":
             schema = fetch_schema(api, f"{service}.json")
             schema_path = service_path / f"{service}.json"
             schema_json = json.dumps(schema, indent=2)
