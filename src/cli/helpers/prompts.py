@@ -21,18 +21,19 @@ def prompt_email(prompt_text: str = "Enter lead developer email") -> str:
 
 
 def prompt_url(prompt_text: str = "Enter GitHub URL") -> str:
+    allowed_hosts = {"github.com", "wwwin-github.cisco.com"}
     while True:
         url = typer.prompt(prompt_text)
         parsed = urlparse(url)
         if (
-            parsed.scheme in ("http", "https")
-            and parsed.netloc == "github.com"
+            parsed.scheme == "https"
+            and parsed.netloc in allowed_hosts
             and parsed.path != ""
         ):
             return url
         else:
             typer.secho(
-                "✘ Invalid GitHub URL. Must start with https://github.com/. Please try again.",
+                "✘ Invalid GitHub URL. Must start with https://github.com/ or https://wwwin-github.cisco.com/. Please try again.",
                 fg=typer.colors.RED,
                 bold=True,
             )
