@@ -1,8 +1,8 @@
 import base64
-
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from cli.config import (
     CONFIG_FILE,
     BASE_URL_BY_ENV,
@@ -127,6 +127,107 @@ def generate_service_credentials(application_details):
     typer.secho("⚠️ The secret will be shown only once.", fg=typer.colors.BRIGHT_YELLOW)
 
 
+def delete_application_from_iam(api, application_id):
+    """
+    Delete an application from IAM service (rollback operation).
+    
+    Args:
+        api: APIClient instance
+        application_id: The ID of the application to delete
+    """
+    try:
+        typer.secho(
+            f"🔄 Rolling back: Deleting application {application_id} from IAM...",
+            fg=typer.colors.YELLOW
+        )
+        delete_url = f"/cxp-iam/api/v1/applications/{application_id}"
+        response = api.delete(delete_url, timeout=10)
+        response.raise_for_status()
+        typer.secho(
+            "✅ Successfully deleted application from IAM (rollback completed).",
+            fg=typer.colors.GREEN
+        )
+    except requests.exceptions.RequestException as error:
+        typer.secho(
+            f"⚠️ Warning: Failed to rollback (delete application from IAM): {error}",
+            fg=typer.colors.RED
+        )
+        typer.secho(
+            f"⚠️ Please manually delete application {application_id} from IAM if it exists.",
+            fg=typer.colors.YELLOW
+        )
+
+
+def create_application_in_developer_studio(api, application_details):
+    """
+    Create application in Developer Studio service with retry mechanism.
+    Maximum total time: ~30 seconds (3 attempts * 8 seconds timeout + 6 seconds wait time)
+    """
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=4),
+        retry=retry_if_exception_type((requests.exceptions.RequestException, ConnectionError))
+    )
+    def _fetch_account_id():
+        """Fetch accountId from users/me endpoint with retry"""
+        typer.secho("🔍 Fetching accountId from user profile...", fg=typer.colors.CYAN)
+        me_response = api.get("/cxp-iam/api/v1/users/me", timeout=5)
+        me_response.raise_for_status()
+        me_data = me_response.json()
+        account_id = me_data.get("associatedAccount", {}).get("id")
+        
+        if not account_id:
+            raise ValueError("accountId not found in user profile response")
+        
+        return account_id
+    
+    try:
+        account_id = _fetch_account_id()
+        typer.secho(f"✅ Retrieved accountId: {account_id}", fg=typer.colors.GREEN)
+    except (requests.exceptions.RequestException, ConnectionError) as error:
+        typer.secho(
+            f"❌ Failed to fetch accountId from /cxp-iam/api/v1/users/me after multiple retries.",
+            fg=typer.colors.RED
+        )
+        handle_request_error(error)
+        raise typer.Exit(code=1)
+    except ValueError as error:
+        typer.secho(
+            f"❌ {error}. The 'associatedAccount.id' field is missing in the response.",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=4),
+        retry=retry_if_exception_type((requests.exceptions.RequestException, ConnectionError))
+    )
+    def _create():
+        create_ds_url = "/lifecycle/api/v1/deployment/applications"
+        payload = {
+            "id": application_details.get("id"),  # Required - uuid from IAM
+            "name": application_details.get("name"),  # Required
+            "accountId": account_id,  # Required - fetched from /users/me
+            "description": application_details.get("description"),  # Optional
+            "leadDeveloper": application_details.get("contact"),  # Required - using contact from IAM
+            "gitRepository": application_details.get("git"),  # Required - using git from IAM
+            "applicationUrl": None  # Optional
+        }
+        response = api.post(create_ds_url, json=payload, timeout=8)
+        response.raise_for_status()
+        return response.json()
+
+    try:
+        return _create()
+    except (requests.exceptions.RequestException, ConnectionError) as e:
+        typer.secho(
+            f"❌ Failed to create application in Developer Studio after multiple retries: {str(e)}",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+
 def register(
     env: str = typer.Argument(
         ...,
@@ -145,6 +246,23 @@ def register(
     print("base url:", api.base_url)
     print("env: ", api.env)
     application_details = create_application(api, config)
+    
+    # Try to create application in Developer Studio with rollback mechanism
+    try:
+        create_application_in_developer_studio(api, application_details)
+    except typer.Exit:
+        # If Developer Studio creation fails, rollback by deleting the IAM application
+        typer.secho(
+            "❌ Failed to create application in Developer Studio. Initiating rollback...",
+            fg=typer.colors.RED
+        )
+        delete_application_from_iam(api, application_details.get("id"))
+        typer.secho(
+            "❌ Registration failed. The application was not created.",
+            fg=typer.colors.RED,
+            bold=True
+        )
+        raise typer.Exit(code=1)
 
     config["application"]["application_uid"] = application_details.get("id")
     save_config(config)
