@@ -2,7 +2,7 @@ import base64
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, RetryError
 from cli.config import (
     CONFIG_FILE,
     BASE_URL_BY_ENV,
@@ -136,24 +136,20 @@ def delete_application_from_iam(api, application_id):
         application_id: The ID of the application to delete
     """
     try:
-        typer.secho(
-            f"🔄 Rolling back: Deleting application {application_id} from IAM...",
-            fg=typer.colors.YELLOW
-        )
         delete_url = f"/cxp-iam/api/v1/applications/{application_id}"
         response = api.delete(delete_url, timeout=10)
         response.raise_for_status()
-        typer.secho(
-            "✅ Successfully deleted application from IAM (rollback completed).",
-            fg=typer.colors.GREEN
-        )
     except requests.exceptions.RequestException as error:
         typer.secho(
-            f"⚠️ Warning: Failed to rollback (delete application from IAM): {error}",
-            fg=typer.colors.RED
+            "⚠️  Warning: Cleanup failed. Partial data may remain in the system.",
+            fg=typer.colors.YELLOW
         )
         typer.secho(
-            f"⚠️ Please manually delete application {application_id} from IAM if it exists.",
+            f"   Application ID: {application_id}",
+            fg=typer.colors.YELLOW
+        )
+        typer.secho(
+            "   Please contact support for assistance with cleanup.",
             fg=typer.colors.YELLOW
         )
 
@@ -171,7 +167,6 @@ def create_application_in_developer_studio(api, application_details):
     )
     def _fetch_account_id():
         """Fetch accountId from users/me endpoint with retry"""
-        typer.secho("🔍 Fetching accountId from user profile...", fg=typer.colors.CYAN)
         me_response = api.get("/cxp-iam/api/v1/users/me", timeout=5)
         me_response.raise_for_status()
         me_data = me_response.json()
@@ -184,18 +179,28 @@ def create_application_in_developer_studio(api, application_details):
     
     try:
         account_id = _fetch_account_id()
-        typer.secho(f"✅ Retrieved accountId: {account_id}", fg=typer.colors.GREEN)
     except (requests.exceptions.RequestException, ConnectionError) as error:
         typer.secho(
-            f"❌ Failed to fetch accountId from /cxp-iam/api/v1/users/me after multiple retries.",
+            "❌ Registration failed: Unable to retrieve your account information.",
             fg=typer.colors.RED
         )
-        handle_request_error(error)
+        typer.secho(
+            "   This may be due to network issues or service unavailability.",
+            fg=typer.colors.YELLOW
+        )
+        typer.secho(
+            "   Please try again later or contact support if the problem persists.",
+            fg=typer.colors.YELLOW
+        )
         raise typer.Exit(code=1)
     except ValueError as error:
         typer.secho(
-            f"❌ {error}. The 'associatedAccount.id' field is missing in the response.",
+            "❌ Registration failed: Your account is missing required information.",
             fg=typer.colors.RED
+        )
+        typer.secho(
+            "   Please contact support to verify your account setup.",
+            fg=typer.colors.YELLOW
         )
         raise typer.Exit(code=1)
     
@@ -221,10 +226,110 @@ def create_application_in_developer_studio(api, application_details):
 
     try:
         return _create()
-    except (requests.exceptions.RequestException, ConnectionError) as e:
+    except requests.exceptions.HTTPError as e:
+        # Parse HTTP error for specific user-friendly messages
+        status_code = e.response.status_code if e.response else None
+        
+        if status_code == 409:
+            typer.secho(
+                "❌ Registration failed: An application with this ID already exists.",
+                fg=typer.colors.RED
+            )
+            typer.secho(
+                f"   Application ID: {application_details.get('id')}",
+                fg=typer.colors.YELLOW
+            )
+            typer.secho(
+                "   Please check if this application was already registered or contact support.",
+                fg=typer.colors.YELLOW
+            )
+        elif status_code == 400:
+            typer.secho(
+                "❌ Registration failed: Invalid application data provided.",
+                fg=typer.colors.RED
+            )
+            typer.secho(
+                "   Please verify your application configuration in lifecycle_config.yaml.",
+                fg=typer.colors.YELLOW
+            )
+        elif status_code == 403:
+            typer.secho(
+                "❌ Registration failed: Access denied.",
+                fg=typer.colors.RED
+            )
+            typer.secho(
+                "   Your account may not have permission to register applications.",
+                fg=typer.colors.YELLOW
+            )
+            typer.secho(
+                "   Please contact your administrator or support.",
+                fg=typer.colors.YELLOW
+            )
+        elif status_code == 503 or status_code == 504:
+            typer.secho(
+                "❌ Registration failed: Service temporarily unavailable.",
+                fg=typer.colors.RED
+            )
+            typer.secho(
+                "   Please try again in a few minutes.",
+                fg=typer.colors.YELLOW
+            )
+        else:
+            typer.secho(
+                "❌ Registration failed: An unexpected error occurred.",
+                fg=typer.colors.RED
+            )
+            typer.secho(
+                f"   Error: {str(e)}",
+                fg=typer.colors.YELLOW
+            )
+            typer.secho(
+                "   Please try again later or contact support if the problem persists.",
+                fg=typer.colors.YELLOW
+            )
+        raise typer.Exit(code=1)
+    except (ConnectionError, requests.exceptions.ConnectionError) as e:
         typer.secho(
-            f"❌ Failed to create application in Developer Studio after multiple retries: {str(e)}",
+            "❌ Registration failed: Unable to connect to the service.",
             fg=typer.colors.RED
+        )
+        typer.secho(
+            "   Please check your network connection and try again.",
+            fg=typer.colors.YELLOW
+        )
+        raise typer.Exit(code=1)
+    except (requests.exceptions.Timeout, requests.exceptions.ReadTimeout) as e:
+        typer.secho(
+            "❌ Registration failed: The request timed out.",
+            fg=typer.colors.RED
+        )
+        typer.secho(
+            "   The service may be experiencing high load. Please try again later.",
+            fg=typer.colors.YELLOW
+        )
+        raise typer.Exit(code=1)
+    except RetryError as e:
+        typer.secho(
+            "❌ Registration failed: Service unavailable after multiple attempts.",
+            fg=typer.colors.RED
+        )
+        typer.secho(
+            "   Please try again later or contact support if the problem persists.",
+            fg=typer.colors.YELLOW
+        )
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.secho(
+            "❌ Registration failed: An unexpected error occurred.",
+            fg=typer.colors.RED
+        )
+        typer.secho(
+            f"   Error: {str(e)}",
+            fg=typer.colors.YELLOW
+        )
+        typer.secho(
+            "   Please try again later or contact support.",
+            fg=typer.colors.YELLOW
         )
         raise typer.Exit(code=1)
 
@@ -247,7 +352,7 @@ def register(
     print("env: ", api.env)
     application_details = create_application(api, config)
     
-    # Try to create application in Developer Studio with rollback mechanism
+    # Create application in Developer Studio with rollback mechanism
     try:
         create_application_in_developer_studio(api, application_details)
     except typer.Exit:
