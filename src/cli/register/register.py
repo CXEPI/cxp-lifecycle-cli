@@ -354,7 +354,6 @@ def register(
     
     # Create application in Developer Studio with rollback mechanism
     try:
-        typer.secho("📦 Creating a new application in Developer Studio...", fg=typer.colors.BRIGHT_BLUE)
         create_application_in_developer_studio(api, application_details)
     except typer.Exit:
         # If Developer Studio creation fails, rollback by deleting the IAM application
