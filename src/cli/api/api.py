@@ -1,5 +1,6 @@
 from typing_extensions import Annotated
 import typer
+
 # from cli.api.function import function_commands
 from cli.helpers.custom_typer import CustomTyper
 from cli.settings import api_validation_config
@@ -27,7 +28,7 @@ def ruleset_path() -> Path:
         with ruleset_path() as path:
             run_spectral(path)
     """
-    pkg      = api_validation_config.ruleset_path
+    pkg = api_validation_config.ruleset_path
     filename = api_validation_config.ruleset_filename
 
     try:
@@ -45,6 +46,7 @@ def ruleset_path() -> Path:
     with resources.as_file(traversable) as real_path:
         yield Path(real_path)
 
+
 #
 @api_commands_app.command("validate")
 def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
@@ -60,21 +62,21 @@ def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
             print("No OpenAPI schema selected")
             raise typer.Exit(code=1)
         spec = selected_schema
-    elif not spec.is_file() or spec.suffix not in ['.json', '.yml', '.yaml']:
+    elif not spec.is_file() or spec.suffix not in [".json", ".yml", ".yaml"]:
         print("Given schema path is invalid")
         raise typer.Exit(code=1)
 
     with ruleset_path() as rules_path:
         ruleset_dir = rules_path.parent
-        node_modules = ruleset_dir / 'node_modules'
-        package_json = ruleset_dir / 'package.json'
+        node_modules = ruleset_dir / "node_modules"
+        package_json = ruleset_dir / "package.json"
 
         needs_install = True
         if node_modules.exists() and package_json.exists():
             try:
-                with open(package_json, 'r') as f:
+                with open(package_json, "r") as f:
                     pkg_data = json.load(f)
-                    required_deps = pkg_data.get('dependencies', {}).keys()
+                    required_deps = pkg_data.get("dependencies", {}).keys()
 
                     # Check if all required packages exist in node_modules
                     if all((node_modules / dep).exists() for dep in required_deps):
@@ -88,7 +90,7 @@ def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
                 ["npm", "ci", "--omit=dev"],
                 cwd=str(ruleset_dir),
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
             )
             if npm_install.returncode != 0:
                 print("Failed to install node modules:", npm_install.stderr.decode())
@@ -112,9 +114,12 @@ def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
             cmd = [
                 npx,
                 "-y",  # skip “install?” prompt on older npx
-                "-p", "@stoplight/spectral-cli",
-                "spectral", "lint",
-                "--ruleset", str(rules_path),
+                "-p",
+                "@stoplight/spectral-cli",
+                "spectral",
+                "lint",
+                "--ruleset",
+                str(rules_path),
                 str(spec),
             ]
 
