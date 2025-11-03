@@ -51,7 +51,7 @@ def create_application(api, config):
                 timeout=10,
             )
             response.raise_for_status()
-            typer.secho("✅ Application created successfully!")
+            typer.secho("✅ Application created successfully!", fg=typer.colors.BRIGHT_GREEN)
             return response.json()
 
         except requests.exceptions.RequestException as error:
@@ -109,7 +109,7 @@ def assign_roles(api, application_details, env):
                     timeout=10,
                 )
                 response.raise_for_status()
-                typer.secho(f"✅ Assigned role for {service['name']} successfully!")
+                typer.secho(f"\n✅ Assigned role for {service['name']} successfully!", fg=typer.colors.BRIGHT_GREEN)
 
             except requests.exceptions.RequestException as error:
                 progress.update(task, description="❌ Failed to assign role.")
@@ -126,9 +126,9 @@ def generate_service_credentials(application_details):
     )
     credentials = base64.b64encode(credentials_raw.encode("utf-8")).decode("utf-8")
     typer.secho(
-        f"🔒 Your Service account secret is: {credentials}", fg=typer.colors.GREEN
+        f"\n\n🔒 Your Service account secret is: {credentials}", fg=typer.colors.MAGENTA
     )
-    typer.secho("⚠️ The secret will be shown only once.", fg=typer.colors.BRIGHT_YELLOW)
+    typer.secho("⚠️ Please copy this secret and store it securely, it will not be shown again.", fg=typer.colors.BRIGHT_YELLOW)
 
 
 def register(
