@@ -101,7 +101,12 @@ def assign_roles(api, application_details, env):
             try:
                 response = api.put(
                     assign_roles_url,
-                    json={'status':"ACTIVE", 'assignRoles':[{"id": service["role_id"], "name": service["role_name"]}]},
+                    json={
+                        "status": "ACTIVE",
+                        "assignRoles": [
+                            {"id": service["role_id"], "name": service["role_name"]}
+                        ],
+                    },
                     timeout=10,
                 )
                 response.raise_for_status()

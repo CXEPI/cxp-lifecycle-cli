@@ -1,35 +1,55 @@
-[tool.poetry]
+[project]
 name = "lifecycle-cli"
-version = "0.1.38"
+version = "0.1.39"
 description = "CLI tool for managing lifecycle operations"
-authors = ["ronilefkowitz <rlefkowi@cisco.com>"]
+authors = [
+    {name = "ronilefkowitz", email = "rlefkowi@cisco.com"}
+]
 readme = "README.md"
-packages = [{ include = "cli", from = "src" }]
+requires-python = ">=3.9"
+dependencies = [
+    "typer>=0.16.0",
+    "requests>=2.32.3",
+    "pyyaml>=6.0.2",
+    "questionary>=2.1.0",
+    "semver>=3.0.4",
+    "jsonschema>=4.24.0",
+    "python-dotenv>=1.1.0",
+    "pydantic-settings>=2.9.1",
+    "packaging>=25.0",
+    "tomlkit>=0.13.3",
+    "sseclient>=0.0.27",
+    "tomli>=2.0.0; python_version<'3.11'",
+]
+keywords = ["cli", "lifecycle", "operations", "deployment"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-typer = "^0.16.0"
-requests = "^2.32.3"
-pyyaml = "^6.0.2"
-questionary = "^2.1.0"
-semver = "^3.0.4"
-jsonschema = "^4.24.0"
-python-dotenv = "^1.1.0"
-pydantic-settings = "^2.9.1"
-packaging = "^25.0"
-tomlkit = "^0.13.3"
-sseclient = "^0.0.27"
-
-
-[tool.poetry.scripts]
+[project.scripts]
 cx-cli = "cli.commands:app"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "black>=24.3",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
-black = "^24.3"
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
