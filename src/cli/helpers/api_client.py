@@ -2,7 +2,6 @@ import requests
 from cli.settings import general_config
 from cli.config import BACKEND_BASE_URL, ENV
 from cli.validators import validate_creds
-import typer
 
 
 class APIClient:

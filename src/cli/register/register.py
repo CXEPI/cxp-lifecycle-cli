@@ -24,8 +24,7 @@ def create_application(api, config):
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         transient=True,
-    ) as progress:
-        task = progress.add_task("Creating application...", start=True)
+    ):
 
         try:
             application_metadata = config.get("application", {})
@@ -113,7 +112,7 @@ def assign_roles(api, application_details, env):
                 typer.secho(f"✅ Assigned role for {service['name']} successfully!")
 
             except requests.exceptions.RequestException as error:
-                progress.update(task, description=f"❌ Failed to assign role.")
+                progress.update(task, description="❌ Failed to assign role.")
                 handle_request_error(error)
                 raise typer.Exit(code=1)
 

@@ -141,8 +141,8 @@ def init():
     lifecycle_path = create_lifecycle_folder()
     create_lifecycle_envs_folder(lifecycle_path)
     api = APIClient()
-    print("base url:", api.base_url)
-    print("env: ", api.env)
+    print("Base URI:", api.base_url)
+    print("Environment: ", api.env)
     schema = fetch_schema(api, "config.json")
     if schema == {}:
         raise typer.Exit(1)
@@ -158,11 +158,11 @@ def init():
     }
 
     save_config(config)
-    typer.secho(f"Created lifecycle folders and config file", fg=typer.colors.GREEN)
+    typer.secho("✅ Created lifecycle folders and config file", fg=typer.colors.GREEN)
 
     if core_services:
         typer.secho(
-            f"Created folders for services: {', '.join(core_services)}",
+            f"✅ Created folders for services: {', '.join(core_services)}",
             fg=typer.colors.GREEN,
         )
     else:

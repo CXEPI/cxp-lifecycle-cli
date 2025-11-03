@@ -9,7 +9,7 @@ from typing import Optional
 import requests
 from packaging.version import Version
 
-CACHE_FILE = Path("lifecycle", "version_cache.json")
+CACHE_FILE = Path("lifecycle", ".version_cache.json")
 CACHE_TTL = timedelta(hours=8)
 
 
