@@ -6,7 +6,6 @@ from importlib import metadata
 def get_version():
     """Get version from various sources in order of preference."""
     try:
-        # Try to get version from installed package metadata first
         return metadata.version("lifecycle-cli")
     except metadata.PackageNotFoundError:
         return "unknown"

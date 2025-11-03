@@ -32,7 +32,6 @@ class VersionManager:
             logging.info(f"Using cached version: {cached_version}")
             return cached_version
 
-        # For testing: simulate a newer version is available
         self.latest_version = self.get_latest_github_tag()
         self.save_cache_version()
         return self.latest_version
