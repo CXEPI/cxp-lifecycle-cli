@@ -131,6 +131,7 @@ def deploy(
     handle_env_error(env)
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
+    app_version = config.get("application", {}).get("app_version", {})
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
@@ -168,6 +169,7 @@ def deploy(
         "deployment_id": str(deployment_id),
         "services": services_payload,
         "app_id": app_id,
+        "app_version": app_version
     }
     typer.secho(f"Deploying services: {services}", fg=typer.colors.BRIGHT_YELLOW)
     response = api.post(
