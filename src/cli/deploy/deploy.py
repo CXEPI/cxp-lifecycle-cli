@@ -225,7 +225,7 @@ def deploy(
     handle_env_error(env)
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
-    app_version = str(config.get("app_version", {}).get("app_version", {}))
+    app_version = str(config.get("application", {}).get("app_version", {}))
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
