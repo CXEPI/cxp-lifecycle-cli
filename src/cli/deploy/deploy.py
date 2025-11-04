@@ -1,12 +1,20 @@
 import uuid
-from cli.helpers.custom_typer import CustomTyper
 import os
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from pathlib import Path
+
 import requests
 import typer
-from cli.config import get_deployment_base_url, ENABLE_ALL_ENVIRNMENTS
+import questionary
+from questionary import Style
+from sseclient import SSEClient
+
+from cli.helpers.custom_typer import CustomTyper
+from cli.config import get_deployment_base_url
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config, load_env, inject_env_into_schema
-from pathlib import Path
 from cli.helpers.errors import handle_env_error
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
@@ -21,81 +29,173 @@ def upload_services_config_to_s3(
         env_path = os.path.join(lifecycle_path / "lifecycle_envs", f"{env}.env")
         env_vars = load_env(env_path)
         services_payload = {}
-        services_to_deploy = []
 
-        for service, folder_path in config.get("core_services", {}).items():
-            if deploy_all or typer.confirm(
-                f"Do you want to deploy '{service}'?", default=True
-            ):
-                services_to_deploy.append(service)
-                key_prefix = f"lifecycle/{app_id}/{deployment_id}/{service}"
-                for root, _, files in os.walk(folder_path):
-                    for file in files:
-                        full_path = os.path.join(root, file)
-                        if os.path.isfile(full_path):
-                            api = APIClient(
-                                base_url=get_deployment_base_url(env),
-                                env=env,
-                                creds_path=creds_path,
-                            )
-                            response = api.post(
-                                "s3/generate_presigned_url",
-                                json={
-                                    "key": os.path.join(
-                                        key_prefix,
-                                        os.path.relpath(full_path, folder_path),
-                                    )
-                                },
-                                headers={"Content-Type": "application/json"},
-                            )
-                            if response.status_code != 200:
-                                typer.secho(
-                                    f"Failed to generate presigned URL for {file}: {response.text}",
-                                    fg=typer.colors.BRIGHT_RED,
-                                )
-                                raise typer.Exit(1)
-                            presigned_url = response.json().get("url")
-                            # Inject env vars if JSON schema
-                            if file.endswith(".json") or file.endswith(".yaml"):
-                                injected_content = inject_env_into_schema(
-                                    full_path, env_vars
-                                )
-                                upload_response = requests.put(
-                                    presigned_url,
-                                    data=injected_content.encode(),
-                                    headers={
-                                        "Content-Type": "application/octet-stream",
-                                        "x-amz-server-side-encryption": "aws:kms",
-                                    },
-                                )
-                            else:
-                                with open(full_path, "rb") as file_data:
-                                    upload_response = requests.put(
-                                        presigned_url,
-                                        data=file_data,
-                                        headers={
-                                            "Content-Type": "application/octet-stream",
-                                            "x-amz-server-side-encryption": "aws:kms",
-                                        },
-                                    )
-                            if upload_response.status_code != 200:
-                                typer.secho(
-                                    f"Internal error",
-                                    fg=typer.colors.BRIGHT_RED,
-                                )
-                                raise typer.Exit(1)
-                services_payload[service] = {"configuration_file_path": key_prefix}
+        # Get all available services
+        all_services = list(config.get("core_services", {}).keys())
+        
+        # Select services to deploy
+        if deploy_all:
+            services_to_deploy = all_services
+        else:
+            if not all_services:
+                typer.secho(
+                    "No core services found in configuration.",
+                    fg=typer.colors.BRIGHT_YELLOW,
+                )
+                return {}, []
+            
+            # Create choices with all services selected by default
+            choices = [questionary.Choice(service, checked=True) for service in all_services]
+            
+            # Custom style with transparent background
+            custom_style = Style([
+                ('checkbox-selected', 'fg:#00aa00 bold'),  # Green checkmark
+                ('checkbox', 'fg:#ffffff'),  # White for unselected
+                ('selected', 'bg: fg:'),  # Transparent background
+                ('pointer', 'fg:#00aa00 bold'),  # Green pointer
+                ('highlighted', 'fg:#00aa00 bg:'),  # Green text, transparent background
+                ('answer', 'fg:#00aa00 bold'),  # Green for final answer
+            ])
+            
+            selected_services = questionary.checkbox(
+                "Select services to deploy:",
+                choices=choices,
+                style=custom_style
+            ).ask()
+            
+            if selected_services is None:  # User cancelled
+                typer.secho("Deployment cancelled.", fg=typer.colors.BRIGHT_YELLOW)
+                raise typer.Exit(0)
+                
+            services_to_deploy = selected_services
+
+        if not services_to_deploy:
+            typer.secho(
+                "No services selected for deployment. At least one service must be selected.",
+                fg=typer.colors.BRIGHT_MAGENTA,
+            )
+            raise typer.Exit(0)
+
+        typer.secho(
+            f"Selected services: {', '.join(services_to_deploy)}",
+            fg=typer.colors.BRIGHT_BLUE,
+        )
+
+        # Collect all upload tasks
+        upload_tasks = []
+        api = APIClient(
+            base_url=get_deployment_base_url(env),
+            env=env,
+            creds_path=creds_path,
+        )
+        
+        for service in services_to_deploy:
+            folder_path = config["core_services"][service]
+            key_prefix = f"lifecycle/{app_id}/{deployment_id}/{service}"
+            
+            for root, _, files in os.walk(folder_path):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    if os.path.isfile(full_path):
+                        relative_path = os.path.relpath(full_path, folder_path)
+                        s3_key = os.path.join(key_prefix, relative_path)
+                        upload_tasks.append({
+                            'service': service,
+                            'file_path': full_path,
+                            's3_key': s3_key,
+                            'folder_path': folder_path
+                        })
+            
+            services_payload[service] = {"configuration_file_path": key_prefix}
+
+        # Upload files concurrently
+        total_files = len(upload_tasks)
+        typer.secho(
+            f"Uploading {total_files} files across {len(services_to_deploy)} services...",
+            fg=typer.colors.BRIGHT_CYAN,
+        )
+        
+        def upload_file(task):
+            try:
+                # Generate presigned URL
+                response = api.post(
+                    "s3/generate_presigned_url",
+                    json={"key": task['s3_key']},
+                    headers={"Content-Type": "application/json"},
+                )
+                if response.status_code != 200:
+                    return f"Failed to generate presigned URL for {task['file_path']}: {response.text}"
+                
+                presigned_url = response.json().get("url")
+                file_name = os.path.basename(task['file_path'])
+                
+                # Upload file
+                if file_name.endswith(".json") or file_name.endswith(".yaml"):
+                    injected_content = inject_env_into_schema(task['file_path'], env_vars)
+                    upload_response = requests.put(
+                        presigned_url,
+                        data=injected_content.encode(),
+                        headers={
+                            "Content-Type": "application/octet-stream",
+                            "x-amz-server-side-encryption": "aws:kms",
+                        },
+                    )
+                else:
+                    with open(task['file_path'], "rb") as file_data:
+                        upload_response = requests.put(
+                            presigned_url,
+                            data=file_data,
+                            headers={
+                                "Content-Type": "application/octet-stream",
+                                "x-amz-server-side-encryption": "aws:kms",
+                            },
+                        )
+                
+                if upload_response.status_code != 200:
+                    return f"Upload failed for {task['file_path']}: HTTP {upload_response.status_code}"
+                
+                return None  # Success
+            except Exception as e:
+                return f"Error uploading {task['file_path']}: {str(e)}"
+
+        # Execute uploads with progress tracking
+        completed_count = 0
+        errors = []
+        
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_task = {executor.submit(upload_file, task): task for task in upload_tasks}
+            
+            for future in as_completed(future_to_task):
+                task = future_to_task[future]
+                result = future.result()
+                completed_count += 1
+                
+                if result is None:  # Success
+                    typer.secho(
+                        f"✓ [{completed_count}/{total_files}] {task['service']}/{os.path.basename(task['file_path'])}",
+                        fg=typer.colors.BRIGHT_GREEN,
+                    )
+                else:  # Error
+                    errors.append(result)
+                    typer.secho(
+                        f"✗ [{completed_count}/{total_files}] {task['service']}/{os.path.basename(task['file_path'])}",
+                        fg=typer.colors.BRIGHT_RED,
+                    )
+        
+        if errors:
+            typer.secho("\nUpload errors:", fg=typer.colors.BRIGHT_RED)
+            for error in errors:
+                typer.secho(f"  • {error}", fg=typer.colors.RED)
+            raise typer.Exit(1)
+        
+        typer.secho(
+            f"✓ Successfully uploaded all {total_files} files!",
+            fg=typer.colors.BRIGHT_GREEN,
+        )
 
     except Exception as e:
         typer.secho(f"An error occurred: {str(e)}", fg=typer.colors.BRIGHT_RED)
         raise typer.Exit(1)
-
-    if not services_to_deploy:
-        typer.secho(
-            "No services were selected for deployment. At least one service must be selected.",
-            fg=typer.colors.BRIGHT_MAGENTA,
-        )
-        raise typer.Exit(0)
 
     return services_payload, services_to_deploy
 
@@ -122,15 +222,9 @@ def deploy(
         creds_path: Optional path to credentials file. If not provided, the default path will be used.
         deploy_all: If True, deploy all services without confirmation prompts.
     """
-    # if not ENABLE_ALL_ENVIRNMENTS and (env != "dev" and env != "sandbox"):
-    #     typer.secho(
-    #         f"You can only deploy to 'dev' environment using the cli tool.",
-    #         fg=typer.colors.RED,
-    #     )
-    #     raise typer.Exit(1)
     handle_env_error(env)
     config = load_config()
-    app_id = config.get("application", {}).get("application_uid", {})
+    app_id = config.get("application", {}).get("application_uid")
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
@@ -142,15 +236,22 @@ def deploy(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
     )
     response = api.get(
-        f"/status/application/{app_id}/inProgress", headers={"Content-Type": "application/json"}
+        f"/status/application/{app_id}/inProgress",
+        headers={"Content-Type": "application/json"},
     )
     if response.status_code == 200:
         in_progress = response.json()
         if in_progress:
             typer.secho(
-                f"An existing deployment is already in progress for application_id {app_id}.\n"
-                " Please wait until it finishes before starting a new deployment,"
-                " or use the cancel command to stop the current deployment (only possible during the validation phase)",
+                f"An existing deployment is already in progress for application ID {app_id}.",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            typer.secho(
+                "Please wait until it finishes before starting a new deployment, or use the cancel command",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            typer.secho(
+                "to stop the current deployment (only possible during the validation phase).",
                 fg=typer.colors.BRIGHT_RED,
             )
             raise typer.Exit(1)
@@ -169,18 +270,18 @@ def deploy(
         "services": services_payload,
         "app_id": app_id,
     }
-    typer.secho(f"Deploying services: {services}", fg=typer.colors.BRIGHT_YELLOW)
+    typer.secho(f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW)
     response = api.post(
-        f"/msk/deploy", json=payload, headers={"Content-Type": "application/json"}
+        "/msk/deploy", json=payload, headers={"Content-Type": "application/json"}
     )
     if response.status_code != 200:
         typer.secho(
-            f"Failed to initiate deployment for {services}: {response.text}",
+            f"Failed to initiate deployment for {', '.join(services)}: {response.text}",
             fg=typer.colors.BRIGHT_RED,
         )
         return
 
-    typer.secho("Deployment initiated successfully.", fg=typer.colors.BRIGHT_GREEN)
+    typer.secho(f"Deployment {deployment_id} initiated successfully.", fg=typer.colors.BRIGHT_GREEN)
 
 
 @deploy_commands_app.command("get-status")
@@ -198,17 +299,12 @@ def get_status(
 
     if not watch:
         # Single status request
-        typer.secho("Getting Status for deployment", fg=typer.colors.BRIGHT_BLUE)
+        typer.secho("Getting status for deployment", fg=typer.colors.BRIGHT_BLUE)
         _display_deployment_status(deployment_id, env)
         return
 
     # Streaming mode using SSE
     try:
-        import time
-        from sseclient import SSEClient
-        from datetime import datetime
-        import json
-
         api = APIClient(base_url=get_deployment_base_url(env), env=env)
 
         typer.secho(
@@ -223,7 +319,6 @@ def get_status(
         )
         headers = api.get_headers()
 
-        last_update_time = datetime.now()
         for event in SSEClient(stream_url, headers=headers):
             if not event.data:
                 continue
@@ -233,7 +328,7 @@ def get_status(
 
                 if "info" in status_data and "Connection closed" in status_data["info"]:
                     typer.secho(
-                        "\nStream closed: Connection timeout after 5 minutes",
+                        "\nStream closed: Connection timeout after 5 minutes.",
                         fg=typer.colors.BRIGHT_YELLOW,
                     )
                     break
@@ -243,7 +338,7 @@ def get_status(
                     and status_data["error"] == "Deployment not found"
                 ):
                     typer.secho(
-                        "\nDeployment not found",
+                        "\nDeployment not found.",
                         fg=typer.colors.BRIGHT_RED,
                     )
                     break
@@ -287,7 +382,7 @@ def get_status(
 
                 if has_validation_failed:
                     typer.secho(
-                        "\nDeployment Failed Due To Validation Failure",
+                        "\nDeployment failed due to validation failure.",
                         fg=typer.colors.BRIGHT_RED,
                     )
                     break
@@ -298,7 +393,7 @@ def get_status(
 
             except json.JSONDecodeError:
                 typer.secho(
-                    f"Error parsing update: {event.data}", fg=typer.colors.BRIGHT_RED
+                    f"Error parsing status update: {event.data}", fg=typer.colors.BRIGHT_RED
                 )
 
     except ImportError:

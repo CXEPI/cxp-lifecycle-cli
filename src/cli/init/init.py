@@ -65,8 +65,12 @@ def create_service_folders(lifecycle_path, core_services, api):
         service_path.mkdir(parents=True, exist_ok=True)
 
         if service == "data_fabric":
-            with open(service_path / "commands.txt", "w", encoding="utf-8") as schema_file:
-                schema_file.write("#Create Connector connectors/connectors.example.json")
+            with open(
+                service_path / "commands.txt", "w", encoding="utf-8"
+            ) as schema_file:
+                schema_file.write(
+                    "#Create Connector connectors/connectors.example.json"
+                )
             folders = [
                 "connectors",
                 "etl_instances",
@@ -89,7 +93,7 @@ def create_service_folders(lifecycle_path, core_services, api):
 
             (service_path / "data_models").mkdir(parents=True, exist_ok=True)
             (service_path / "data_models" / "sample").mkdir(parents=True, exist_ok=True)
-            snacks_path =  Path("data_models") / "sample"
+            snacks_path = Path("data_models") / "sample"
             schema = fetch_schema(api, f"{snacks_path}/sample_model.example.json")
             schema_path = service_path / snacks_path / f"sample_model.example.json"
             schema_json = json.dumps(schema, indent=2)
@@ -99,12 +103,22 @@ def create_service_folders(lifecycle_path, core_services, api):
             for folder in snacks_folders:
                 folder_path = service_path / snacks_path / folder
                 folder_path.mkdir(parents=True, exist_ok=True)
-                schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}.example.json")
-                with open(folder_path / f"{folder}.example.json", "w", encoding="utf-8") as schema_file:
+                schema = fetch_schema(
+                    api, f"{snacks_path}/{folder}/{folder}.example.json"
+                )
+                with open(
+                    folder_path / f"{folder}.example.json", "w", encoding="utf-8"
+                ) as schema_file:
                     schema_file.write(json.dumps(schema, indent=2))
                 if folder == "entity":
-                    schema = fetch_schema(api, f"{snacks_path}/{folder}/{folder}_second.example.json")
-                    with open(folder_path / f"{folder}_second.example.json", "w", encoding="utf-8") as schema_file:
+                    schema = fetch_schema(
+                        api, f"{snacks_path}/{folder}/{folder}_second.example.json"
+                    )
+                    with open(
+                        folder_path / f"{folder}_second.example.json",
+                        "w",
+                        encoding="utf-8",
+                    ) as schema_file:
                         schema_file.write(json.dumps(schema, indent=2))
 
         if service == "iam" or service == "baqs" or service == "agent":
@@ -127,8 +141,8 @@ def init():
     lifecycle_path = create_lifecycle_folder()
     create_lifecycle_envs_folder(lifecycle_path)
     api = APIClient()
-    print("base url:", api.base_url)
-    print("env: ", api.env)
+    print("Base URI:", api.base_url)
+    print("Environment: ", api.env)
     schema = fetch_schema(api, "config.json")
     if schema == {}:
         raise typer.Exit(1)
@@ -144,11 +158,11 @@ def init():
     }
 
     save_config(config)
-    typer.secho(f"Created lifecycle folders and config file", fg=typer.colors.GREEN)
+    typer.secho("✅ Created lifecycle folders and config file", fg=typer.colors.GREEN)
 
     if core_services:
         typer.secho(
-            f"Created folders for services: {', '.join(core_services)}",
+            f"✅ Created folders for services: {', '.join(core_services)}",
             fg=typer.colors.GREEN,
         )
     else:
