@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lifecycle-cli
-Version: 0.1.39
+Version: 0.1.40
 Summary: CLI tool for managing lifecycle operations
 Author-email: ronilefkowitz <rlefkowi@cisco.com>
 Keywords: cli,lifecycle,operations,deployment
@@ -27,6 +27,7 @@ Requires-Dist: packaging>=25.0
 Requires-Dist: tomlkit>=0.13.3
 Requires-Dist: sseclient>=0.0.27
 Requires-Dist: tomli>=2.0.0; python_version < "3.11"
+Requires-Dist: tenacity>=8.2.3
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: black>=24.3; extra == "dev"

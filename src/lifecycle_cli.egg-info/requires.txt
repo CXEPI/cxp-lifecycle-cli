@@ -9,6 +9,7 @@ pydantic-settings>=2.9.1
 packaging>=25.0
 tomlkit>=0.13.3
 sseclient>=0.0.27
+tenacity>=8.2.3
 
 [:python_version < "3.11"]
 tomli>=2.0.0

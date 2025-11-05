@@ -1,3 +1,4 @@
+from cli.config import CONFIG_FILE
 import uuid
 import os
 import json
@@ -114,6 +115,13 @@ def upload_services_config_to_s3(
             f"Uploading {total_files} files across {len(services_to_deploy)} services...",
             fg=typer.colors.BRIGHT_CYAN,
         )
+        
+        upload_tasks.append({
+            'service': 'lifecycle',
+            'file_path': str(Path("lifecycle") / CONFIG_FILE),
+            's3_key': f"lifecycle/{app_id}/{deployment_id}/{CONFIG_FILE}",
+            'folder_path': str(lifecycle_path)
+        })
         
         def upload_file(task):
             try:
