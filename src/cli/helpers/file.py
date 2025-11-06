@@ -69,4 +69,3 @@ def inject_env_into_schema(schema_path: str, env_vars: dict) -> str:
     elif schema_path.endswith(".yaml"):
         return yaml.dump(injected_data, sort_keys=False)
     return ""
-

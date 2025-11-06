@@ -1,3 +1,37 @@
+Metadata-Version: 2.4
+Name: lifecycle-cli
+Version: 0.1.40
+Summary: CLI tool for managing lifecycle operations
+Author-email: ronilefkowitz <rlefkowi@cisco.com>
+Keywords: cli,lifecycle,operations,deployment
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: typer>=0.16.0
+Requires-Dist: requests>=2.32.3
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: questionary>=2.1.0
+Requires-Dist: semver>=3.0.4
+Requires-Dist: jsonschema>=4.24.0
+Requires-Dist: python-dotenv>=1.1.0
+Requires-Dist: pydantic-settings>=2.9.1
+Requires-Dist: packaging>=25.0
+Requires-Dist: tomlkit>=0.13.3
+Requires-Dist: sseclient>=0.0.27
+Requires-Dist: tomli>=2.0.0; python_version < "3.11"
+Requires-Dist: tenacity>=8.2.3
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: black>=24.3; extra == "dev"
+
 # CX Lifecycle CLI
 
 A command-line interface tool for managing lifecycle operations, built for modern Python development.

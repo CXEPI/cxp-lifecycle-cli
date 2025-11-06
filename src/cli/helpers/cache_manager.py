@@ -1,15 +1,15 @@
 import json
 import logging
-from datetime import datetime
-from importlib.metadata import version, PackageNotFoundError
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta
+from importlib.metadata import version as dist_version
 from pathlib import Path
 from typing import Optional
 
-from cli.helpers.api_client import APIClient
-from packaging import version as pkg_version
+import requests
+from packaging.version import Version
 
-CACHE_FILE = Path("lifecycle", "version_cache.json")
+CACHE_FILE = Path("lifecycle", ".version_cache.json")
 CACHE_TTL = timedelta(hours=8)
 
 
@@ -24,20 +24,15 @@ class VersionManager:
         self.cache_ttl = cache_ttl
         self.package_name = package_name
         self.latest_version = self.get_latest_version()
-        self.installed_version = self.get_installed_version()
+        self.installed_version = self.get_project_version()
 
     def get_latest_version(self) -> str:
         cached_version = self.get_cache_version()
         if cached_version:
             logging.info(f"Using cached version: {cached_version}")
             return cached_version
-        api = APIClient()
-        response = api.get(f"/version/get_latest_version")
-        if response.status_code != 200:
-            raise Exception(
-                f"Failed to fetch latest version from backend: {response.status_code}"
-            )
-        self.latest_version = response.json().get("latest_version")
+
+        self.latest_version = self.get_latest_github_tag()
         self.save_cache_version()
         return self.latest_version
 
@@ -52,6 +47,18 @@ class VersionManager:
                 f,
             )
 
+    def get_latest_github_tag(self) -> str:
+        url = "https://api.github.com/repos/CXEPI/cxp-lifecycle-cli/tags"
+        headers = {}
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            raise RuntimeError(f"GitHub API request failed: status {resp.status_code}")
+        tags = resp.json()
+        if not tags:
+            raise RuntimeError("No tags found")
+        latest = tags[0]["name"]
+        return latest
+
     def get_cache_version(self) -> Optional[str]:
         if not self.cache_file.exists():
             return None
@@ -59,19 +66,17 @@ class VersionManager:
             with open(self.cache_file, "r") as f:
                 data = json.load(f)
             cached_time = datetime.fromisoformat(data["timestamp"])
-            if datetime.now() - cached_time < CACHE_TTL:
+            if datetime.now() - cached_time < self.cache_ttl:
                 return data["version"]
         except Exception as e:
             logging.error(f"Error reading cache file {self.cache_file}: {e}")
         return None
 
-    def get_installed_version(self) -> str:
-        try:
-            return version(self.package_name)
-        except PackageNotFoundError:
-            return "0.0.0"
+    def get_project_version(self) -> str:
+        return dist_version(self.package_name)
 
     def is_up_to_date(self) -> bool:
-        return pkg_version.parse(self.installed_version) >= pkg_version.parse(
-            self.latest_version
-        )
+        latest = re.sub(r"^[vV]", "", self.latest_version)
+        installed = re.sub(r"^[vV]", "", self.installed_version)
+
+        return Version(installed) >= Version(latest)
