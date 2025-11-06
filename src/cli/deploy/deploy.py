@@ -13,7 +13,7 @@ from questionary import Style
 from sseclient import SSEClient
 
 from cli.helpers.custom_typer import CustomTyper
-from cli.config import get_deployment_base_url
+from cli.config import get_deployment_base_url, BASE_URL_BY_ENV
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config, load_env, inject_env_into_schema
 from cli.helpers.errors import handle_env_error
@@ -243,7 +243,7 @@ def deploy(
         raise typer.Exit(1)
 
     api = APIClient(
-        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+        base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path
     )
     
     # Check if application exists in IAM
@@ -272,7 +272,10 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-    
+
+    api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
     response = api.get(
         f"/status/application/{app_id}/inProgress",
         headers={"Content-Type": "application/json"},
