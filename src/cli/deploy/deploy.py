@@ -17,6 +17,7 @@ from cli.config import get_deployment_base_url
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config, load_env, inject_env_into_schema
 from cli.helpers.errors import handle_env_error
+from cli.register.register import create_application_in_developer_studio
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
 
@@ -244,6 +245,34 @@ def deploy(
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
     )
+    
+    # Check if application exists in IAM
+    iam_response = api.get(
+        f"/cxp-iam/api/v1/applications/{app_id}",
+        headers={"Content-Type": "application/json"},
+    )
+    
+    if iam_response.status_code == 200:
+        # Application exists in IAM, now check if it exists in Developer Studio
+        ds_response = api.get(
+            f"/lifecycle/api/v1/deployment/applications/{app_id}",
+            headers={"Content-Type": "application/json"},
+        )
+        
+        # If application doesn't exist in Developer Studio (404), create it
+        if ds_response.status_code == 404:  
+            # Get application details from IAM response
+            iam_app_details = iam_response.json()
+            
+            try:
+                create_application_in_developer_studio(api, iam_app_details)
+            except Exception as e:
+                typer.secho(
+                    f"Failed to create application in Developer Studio: {str(e)}",
+                    fg=typer.colors.BRIGHT_RED,
+                )
+                raise typer.Exit(1)
+    
     response = api.get(
         f"/status/application/{app_id}/inProgress",
         headers={"Content-Type": "application/json"},
