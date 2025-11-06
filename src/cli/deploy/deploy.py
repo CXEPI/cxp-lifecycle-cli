@@ -33,7 +33,7 @@ def upload_services_config_to_s3(
 
         # Get all available services
         all_services = list(config.get("core_services", {}).keys())
-        
+
         # Select services to deploy
         if deploy_all:
             services_to_deploy = all_services
@@ -44,10 +44,10 @@ def upload_services_config_to_s3(
                     fg=typer.colors.BRIGHT_YELLOW,
                 )
                 return {}, []
-            
+
             # Create choices with all services selected by default
             choices = [questionary.Choice(service, checked=True) for service in all_services]
-            
+
             # Custom style with transparent background
             custom_style = Style([
                 ('checkbox-selected', 'fg:#00aa00 bold'),  # Green checkmark
@@ -57,17 +57,17 @@ def upload_services_config_to_s3(
                 ('highlighted', 'fg:#00aa00 bg:'),  # Green text, transparent background
                 ('answer', 'fg:#00aa00 bold'),  # Green for final answer
             ])
-            
+
             selected_services = questionary.checkbox(
                 "Select services to deploy:",
                 choices=choices,
                 style=custom_style
             ).ask()
-            
+
             if selected_services is None:  # User cancelled
                 typer.secho("Deployment cancelled.", fg=typer.colors.BRIGHT_YELLOW)
                 raise typer.Exit(0)
-                
+
             services_to_deploy = selected_services
 
         if not services_to_deploy:
@@ -89,11 +89,11 @@ def upload_services_config_to_s3(
             env=env,
             creds_path=creds_path,
         )
-        
+
         for service in services_to_deploy:
             folder_path = config["core_services"][service]
             key_prefix = f"lifecycle/{app_id}/{deployment_id}/{service}"
-            
+
             for root, _, files in os.walk(folder_path):
                 for file in files:
                     full_path = os.path.join(root, file)
@@ -106,7 +106,7 @@ def upload_services_config_to_s3(
                             's3_key': s3_key,
                             'folder_path': folder_path
                         })
-            
+
             services_payload[service] = {"configuration_file_path": key_prefix}
 
         # Upload files concurrently
@@ -115,14 +115,14 @@ def upload_services_config_to_s3(
             f"Uploading {total_files} files across {len(services_to_deploy)} services...",
             fg=typer.colors.BRIGHT_CYAN,
         )
-        
+
         upload_tasks.append({
             'service': 'lifecycle',
             'file_path': str(Path("lifecycle") / CONFIG_FILE),
             's3_key': f"lifecycle/{app_id}/{deployment_id}/{CONFIG_FILE}",
             'folder_path': str(lifecycle_path)
         })
-        
+
         def upload_file(task):
             try:
                 # Generate presigned URL
@@ -133,10 +133,10 @@ def upload_services_config_to_s3(
                 )
                 if response.status_code != 200:
                     return f"Failed to generate presigned URL for {task['file_path']}: {response.text}"
-                
+
                 presigned_url = response.json().get("url")
                 file_name = os.path.basename(task['file_path'])
-                
+
                 # Upload file
                 if file_name.endswith(".json") or file_name.endswith(".yaml"):
                     injected_content = inject_env_into_schema(task['file_path'], env_vars)
@@ -158,10 +158,10 @@ def upload_services_config_to_s3(
                                 "x-amz-server-side-encryption": "aws:kms",
                             },
                         )
-                
+
                 if upload_response.status_code != 200:
                     return f"Upload failed for {task['file_path']}: HTTP {upload_response.status_code}"
-                
+
                 return None  # Success
             except Exception as e:
                 return f"Error uploading {task['file_path']}: {str(e)}"
@@ -169,15 +169,15 @@ def upload_services_config_to_s3(
         # Execute uploads with progress tracking
         completed_count = 0
         errors = []
-        
+
         with ThreadPoolExecutor(max_workers=4) as executor:
             future_to_task = {executor.submit(upload_file, task): task for task in upload_tasks}
-            
+
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
                 result = future.result()
                 completed_count += 1
-                
+
                 if result is None:  # Success
                     typer.secho(
                         f"✓ [{completed_count}/{total_files}] {task['service']}/{os.path.basename(task['file_path'])}",
@@ -189,13 +189,13 @@ def upload_services_config_to_s3(
                         f"✗ [{completed_count}/{total_files}] {task['service']}/{os.path.basename(task['file_path'])}",
                         fg=typer.colors.BRIGHT_RED,
                     )
-        
+
         if errors:
             typer.secho("\nUpload errors:", fg=typer.colors.BRIGHT_RED)
             for error in errors:
                 typer.secho(f"  • {error}", fg=typer.colors.RED)
             raise typer.Exit(1)
-        
+
         typer.secho(
             f"✓ Successfully uploaded all {total_files} files!",
             fg=typer.colors.BRIGHT_GREEN,
