@@ -1,10 +1,12 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 from datetime import datetime, timedelta
 from importlib.metadata import version as dist_version
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import requests
 from packaging.version import Version
@@ -106,3 +108,89 @@ class VersionManager:
         installed = re.sub(r"^[vV]", "", self.installed_version)
 
         return Version(installed) >= Version(latest)
+
+    def _strip_v(self, version: str) -> str:
+        """Remove leading 'v' or 'V' from version string"""
+        return re.sub(r"^[vV]", "", version)
+
+    def _safe_version(self, version: str) -> str:
+        """
+        Convert version string to a format that packaging.Version can parse.
+        Handles versions like "1.2.3-alpha" by converting to "1.2.3a0"
+        """
+        version = self._strip_v(version)
+        # Replace hyphens with empty string for simple versions
+        # packaging.Version will handle semver-like versions
+        return version
+
+    def _detect_installation_method(self) -> str:
+        """
+        Detect how the CLI was installed.
+        Returns: "uv" (preferred), "pip", or "other"
+        """
+        # Check if uv is available and package is installed via uv tool
+        if shutil.which("uv"):
+            try:
+                result = subprocess.run(
+                    ["uv", "tool", "list"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and self.package_name in result.stdout:
+                    return "uv"
+            except Exception:
+                pass
+
+        # Default to pip for other installation methods
+        return "pip"
+
+    def upgrade_cli(self, method: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Automatically upgrade the CLI.
+        UV is the preferred installation method.
+
+        Args:
+            method: Installation method - "uv" or "pip", or None for auto-detect
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        if method is None:
+            method = self._detect_installation_method()
+
+        # UV is preferred - uses git URL for internal repository
+        repo_url = "git+https://github.com/CXEPI/cxp-lifecycle-cli"
+
+        commands = {
+            "uv": ["uv", "tool", "install", "--force", "--no-cache", repo_url],
+            "pip": ["pip", "install", "--upgrade", repo_url],
+        }
+
+        cmd = commands.get(method)
+        if not cmd:
+            return False, f"Unknown installation method: {method}. Supported: uv, pip"
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            if result.returncode == 0:
+                # Clear cache after successful upgrade
+                try:
+                    if self.cache_file.exists():
+                        self.cache_file.unlink()
+                except Exception:
+                    pass
+                return True, f"Successfully upgraded using {method}"
+            else:
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                return False, f"Upgrade failed: {error_msg}"
+        except subprocess.TimeoutExpired:
+            return False, "Upgrade timed out after 120 seconds"
+        except Exception as e:
+            return False, f"Upgrade failed: {str(e)}"

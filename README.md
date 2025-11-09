@@ -33,6 +33,84 @@ cx-cli version         # Show version information
 cx-cli init            # Initialize a new project
 ```
 
+## 🔄 Version Management & Updates
+
+The CLI automatically checks for new versions on startup and notifies you when updates are available.
+
+### Upgrading to the Latest Version
+
+To upgrade to the latest version, simply run:
+
+```bash
+cx-cli upgrade
+```
+
+This will automatically detect your installation method (uv or pip) and upgrade accordingly. You can also specify the method:
+
+```bash
+cx-cli upgrade --method uv    # Force upgrade using uv
+cx-cli upgrade --method pip   # Force upgrade using pip
+cx-cli upgrade -y             # Skip confirmation prompt
+```
+
+### Manual Upgrade
+
+If you prefer to upgrade manually:
+
+```bash
+# Using uv (recommended)
+uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cli
+
+# Using pip
+pip install --upgrade git+https://github.com/CXEPI/cxp-lifecycle-cli
+```
+
+## ⚙️ Configuration
+
+The CLI can be configured using a configuration file located at `~/.cx-cli/config.json`.
+
+### Managing Configuration
+
+```bash
+# List all configuration settings
+cx-cli config list
+
+# Get a specific configuration value
+cx-cli config get version-check-enabled
+
+# Set a configuration value
+cx-cli config set version-check-enabled false
+```
+
+### Available Configuration Options
+
+#### version-check-enabled
+
+Controls whether the CLI checks for updates on startup.
+
+- **Type**: boolean (true/false)
+- **Default**: true
+- **Usage**:
+  ```bash
+  # Disable version checking
+  cx-cli config set version-check-enabled false
+
+  # Enable version checking
+  cx-cli config set version-check-enabled true
+  ```
+
+When disabled, the CLI will not check for updates or block execution when a new version is available. This is useful for CI/CD environments or if you prefer to manage updates manually.
+
+### Configuration File Location
+
+Configuration is stored in `~/.cx-cli/config.json`. You can also edit this file directly:
+
+```json
+{
+  "version-check-enabled": false
+}
+```
+
 ## Commands
 
 ### General Commands
