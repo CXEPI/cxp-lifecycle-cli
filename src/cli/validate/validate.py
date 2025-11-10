@@ -50,7 +50,7 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
         stream_url = f"{get_deployment_base_url(env)}/status/deployment/stream/{validation_id}"
         headers = api.get_headers()
 
-        completed_services = set()  # Track which services we've already reported
+        completed_services = set()
         last_status = None
 
         for event in SSEClient(stream_url, headers=headers):
@@ -60,18 +60,15 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
             try:
                 status_data = json.loads(event.data)
 
-                # Check for stream closure
                 if "info" in status_data and "Connection closed" in status_data["info"]:
                     typer.secho(
                         f"\n\nStream closed by server.",
                         fg=typer.colors.BRIGHT_YELLOW,
                     )
-                    # Return last known status if we have it
                     if last_status:
                         return last_status
                     break
 
-                # Check for errors
                 if "error" in status_data and status_data["error"] == "Deployment not found":
                     typer.secho(
                         f"\n\nValidation not found.",
@@ -85,13 +82,11 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
                 if not services_status:
                     continue
 
-                # Check each service and report completion as it happens
                 for service in services:
                     if service in services_status and service not in completed_services:
                         service_data = services_status[service]
                         service_status = service_data.get("deployment_status", "")
 
-                        # Check if this service has completed (success or failure)
                         is_complete = False
                         if "Done" in service_status or "Succeeded" in service_status or "Completed" in service_status:
                             is_complete = True
@@ -102,21 +97,18 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
                             status_color = typer.colors.BRIGHT_RED
                             icon = "❌"
 
-                        # If complete, print the result immediately
                         if is_complete:
                             completed_services.add(service)
-                            typer.secho("")  # New line before service result
+                            typer.secho("")
                             message = f"{icon} {service.upper()}: {service_status}"
                             if service_data.get("failure_reason"):
                                 message += f" - {service_data['failure_reason']}"
                             typer.secho(message, fg=status_color)
 
-                # Check if all services have completed validation
                 all_done = len(completed_services) == len(services)
 
-                # If all services are done, return the results
                 if all_done:
-                    typer.secho("")  # New line after last result
+                    typer.secho("")
                     return services_status
 
                 # Show progress indicator
@@ -129,12 +121,9 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
                 )
                 continue
 
-        # If we exit the loop without completing, check if we got all results
         if last_status and len(completed_services) == len(services):
-            # All services completed, return the results
             return last_status
         else:
-            # Stream closed but validation incomplete
             typer.secho(
                 f"\n\nStream closed before all services completed validation.",
                 fg=typer.colors.BRIGHT_YELLOW,
@@ -176,7 +165,6 @@ def _display_validation_results(services_status: dict, services: list):
                 has_failures = True
                 typer.secho(f"  Reason: {data['failure_reason']}", fg=typer.colors.BRIGHT_RED)
 
-            # Display validation details if available
             if data.get("validation_details"):
                 typer.secho(f"  Details: {data['validation_details']}", fg=typer.colors.BRIGHT_CYAN)
         else:
@@ -266,7 +254,6 @@ def validate(
         fg=typer.colors.BRIGHT_GREEN,
     )
 
-    # Stream for validation status and display results
     services_status = _stream_validation_status(str(deployment_id), env, api, services)
 
     if services_status:
