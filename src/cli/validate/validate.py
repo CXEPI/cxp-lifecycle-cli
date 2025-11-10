@@ -2,7 +2,6 @@ import typer
 import uuid
 import json
 
-from cli.helpers.custom_typer import CustomTyper
 from cli.config import get_deployment_base_url
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config
@@ -14,8 +13,6 @@ try:
     HAS_SSE = True
 except ImportError:
     HAS_SSE = False
-
-validate_commands_app = CustomTyper(name="validate", help="Validate application configuration")
 
 
 def _get_status_color(status: str) -> str:
@@ -204,7 +201,6 @@ def _display_validation_results(services_status: dict, services: list):
     typer.secho("=" * 60, fg=typer.colors.BRIGHT_BLUE)
 
 
-@validate_commands_app.command("run")
 def validate(
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
@@ -220,11 +216,6 @@ def validate(
 ) -> None:
     """
     Validate the application configuration without deploying.
-
-    Args:
-        env: The environment to validate against, defaults to 'dev'.
-        creds_path: Optional path to credentials file. If not provided, the default path will be used.
-        validate_all: If True, validate all services without confirmation prompts.
     """
     handle_env_error(env)
     config = load_config()
