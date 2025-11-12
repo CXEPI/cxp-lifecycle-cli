@@ -144,11 +144,12 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
         return None
 
 
-def _display_validation_results(services_status: dict, services: list):
+def _display_validation_results(services_status: dict, services: list, show_results: bool = False):
     """Display validation results for all services"""
-    typer.secho("\n" + "=" * 60, fg=typer.colors.BRIGHT_BLUE)
-    typer.secho("Validation Results", fg=typer.colors.BRIGHT_BLUE, bold=True)
-    typer.secho("=" * 60, fg=typer.colors.BRIGHT_BLUE)
+    if show_results:
+        typer.secho("\n" + "=" * 60, fg=typer.colors.BRIGHT_BLUE)
+        typer.secho("Validation Results", fg=typer.colors.BRIGHT_BLUE, bold=True)
+        typer.secho("=" * 60, fg=typer.colors.BRIGHT_BLUE)
 
     has_failures = False
 
@@ -158,12 +159,21 @@ def _display_validation_results(services_status: dict, services: list):
             status = data.get("deployment_status", "Unknown")
             status_color = _get_status_color(status)
 
-            typer.secho(f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True)
-            typer.secho(f"  Status: {status}", fg=status_color)
+            if show_results:
+                typer.secho(f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True)
+                typer.secho(f"  Status: {status}", fg=status_color)
 
             if data.get("failure_reason"):
                 has_failures = True
-                typer.secho(f"  Reason: {data['failure_reason']}", fg=typer.colors.BRIGHT_RED)
+                if data.get("failure_reason"):
+                    if data["failure_reason"].get("combined"):
+                        failure_reason = f" - {data["failure_reason"]["combined"]}\n"
+                    else:
+                        failure_reason = f" - {data["failure_reason"]}\n"
+                else:
+                    failure_reason = ""
+
+                if show_results: typer.secho(f"  Reason: {failure_reason}", fg=typer.colors.BRIGHT_RED)
 
             if data.get("validation_details"):
                 typer.secho(f"  Details: {data['validation_details']}", fg=typer.colors.BRIGHT_CYAN)
