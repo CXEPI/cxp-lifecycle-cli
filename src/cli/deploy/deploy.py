@@ -414,14 +414,12 @@ def get_status(
 
                 for service, data in services.items():
                     status_color = _get_status_color(data.get("deployment_status"))
-                    if data.get("failure_reason"):
-                        if data["failure_reason"].get("combined"):
-                            failure_reason = f" - {data["failure_reason"]["combined"]}"
-                        else:
-                            failure_reason = f" - {data["failure_reason"]}"
-                    else:
-                        failure_reason = ""
-                    message = f" {service}: {data['deployment_status']}{failure_reason}\n"
+                    failure_reason = (
+                        f" - {data['failure_reason']}"
+                        if data.get("failure_reason")
+                        else ""
+                    )
+                    message = f" {service}: {data['deployment_status']}{failure_reason}"
                     typer.secho(message, fg=status_color)
 
                 if has_validation_failed:
@@ -478,14 +476,10 @@ def _display_deployment_status(deployment_id: str, env: str) -> None:
 
     for service, data in status.items():
         status_color = _get_status_color(data.get("deployment_status"))
-        if data.get("failure_reason"):
-            if data["failure_reason"].get("combined"):
-                failure_reason = f" - {data["failure_reason"]["combined"]}\n"
-            else:
-                failure_reason = f" - {data["failure_reason"]}\n"
-        else:
-            failure_reason = ""
-        message = f" {service}: {data['deployment_status']}\n {failure_reason}"
+        failure_reason = (
+            f" - {data['failure_reason']}" if data.get("failure_reason") else ""
+        )
+        message = f" {service}: {data['deployment_status']}\n{failure_reason}\n"
         typer.secho(message, fg=status_color)
 
 
