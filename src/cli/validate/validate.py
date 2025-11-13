@@ -163,8 +163,9 @@ def _display_validation_results(services_status: dict, services: list, show_resu
                 typer.secho(f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True)
                 typer.secho(f"  Status: {status}", fg=status_color)
 
-                if data.get("failure_reason"):
-                    has_failures = True
+            if data.get("failure_reason"):
+                has_failures = True
+                if show_results:
                     typer.secho(f"  Reason: {data['failure_reason']}", fg=typer.colors.BRIGHT_RED)
 
             if data.get("validation_details"):
