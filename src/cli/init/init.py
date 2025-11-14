@@ -7,13 +7,14 @@ import yaml
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import save_config
 from cli.helpers.prompts import prompt_application, prompt_core_services
+from cli.helpers.path_utils import get_lifecycle_path
 
 
 def create_lifecycle_folder():
     """
     Create the lifecycle folder if it doesn't exist.
     """
-    lifecycle_path = Path("lifecycle")
+    lifecycle_path = get_lifecycle_path()
     lifecycle_path.mkdir(exist_ok=True)
     return lifecycle_path
 
