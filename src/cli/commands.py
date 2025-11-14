@@ -28,8 +28,12 @@ def version_check_callback():
             typer.echo("\nPlease update to the latest CLI version:")
             typer.echo("  cx-cli upgrade")
             typer.echo("\nOr manually:")
-            typer.echo("  uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cli")
-            typer.echo("  pip install --upgrade git+https://github.com/CXEPI/cxp-lifecycle-cli")
+            typer.echo(
+                "  uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cli"
+            )
+            typer.echo(
+                "  pip install --upgrade git+https://github.com/CXEPI/cxp-lifecycle-cli"
+            )
             typer.echo("\nTo disable this check, run:")
             typer.echo("  cx-cli config set version-check-enabled false")
             raise typer.Exit()
@@ -76,7 +80,9 @@ def upgrade(
             f"Latest version: {version_manager.latest_version}"
         )
     else:
-        typer.echo(f"✅ Already running the latest version: {version_manager.installed_version}")
+        typer.echo(
+            f"✅ Already running the latest version: {version_manager.installed_version}"
+        )
         return
 
     if not yes:
@@ -90,7 +96,9 @@ def upgrade(
 
     if success:
         typer.echo(f"✅ {message}")
-        typer.echo("Please restart your terminal or run the command again to use the new version.")
+        typer.echo(
+            "Please restart your terminal or run the command again to use the new version."
+        )
     else:
         typer.echo(f"❌ {message}", err=True)
         raise typer.Exit(1)

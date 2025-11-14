@@ -28,7 +28,6 @@ class VersionManager:
         self.latest_version = self.get_latest_version()
         self.installed_version = self.get_project_version()
 
-
     def get_latest_version(self) -> str:
         cached = self.get_cache_version()
         if cached:
@@ -52,38 +51,38 @@ class VersionManager:
             pass
 
     def get_latest_github_tag(self) -> Optional[str]:
-            try:
-                url = "https://api.github.com/repos/CXEPI/cxp-lifecycle-cli/tags"
-                headers = {
-                    "Accept": "application/vnd.github+json",
-                    "User-Agent": "cxp-lifecycle-cli/version-check",
-                }
-                token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
-                if token:
-                    headers["Authorization"] = f"Bearer {token}"
+        try:
+            url = "https://api.github.com/repos/CXEPI/cxp-lifecycle-cli/tags"
+            headers = {
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "cxp-lifecycle-cli/version-check",
+            }
+            token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
 
-                resp = requests.get(url, headers=headers, timeout=3)
-                if resp.status_code != 200:
-                    return None
-
-                tags = resp.json()
-                if not isinstance(tags, list) or not tags:
-                    return None
-
-                candidates = []
-                for t in tags:
-                    name = t.get("name")
-                    if not name:
-                        continue
-                    candidates.append(self._strip_v(name))
-
-                if not candidates:
-                    return None
-
-                best = max(candidates, key=lambda s: Version(self._safe_version(s)))
-                return best
-            except Exception:
+            resp = requests.get(url, headers=headers, timeout=3)
+            if resp.status_code != 200:
                 return None
+
+            tags = resp.json()
+            if not isinstance(tags, list) or not tags:
+                return None
+
+            candidates = []
+            for t in tags:
+                name = t.get("name")
+                if not name:
+                    continue
+                candidates.append(self._strip_v(name))
+
+            if not candidates:
+                return None
+
+            best = max(candidates, key=lambda s: Version(self._safe_version(s)))
+            return best
+        except Exception:
+            return None
 
     def get_cache_version(self) -> Optional[str]:
         try:
@@ -132,10 +131,7 @@ class VersionManager:
         if shutil.which("uv"):
             try:
                 result = subprocess.run(
-                    ["uv", "tool", "list"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
+                    ["uv", "tool", "list"], capture_output=True, text=True, timeout=5
                 )
                 if result.returncode == 0 and self.package_name in result.stdout:
                     return "uv"
@@ -172,12 +168,7 @@ class VersionManager:
             return False, f"Unknown installation method: {method}. Supported: uv, pip"
 
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
             if result.returncode == 0:
                 # Clear cache after successful upgrade

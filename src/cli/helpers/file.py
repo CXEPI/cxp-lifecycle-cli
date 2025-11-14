@@ -1,12 +1,12 @@
-from pathlib import Path
 import re
 import json
 import yaml
 
 from cli.config import CONFIG_FILE
+from cli.helpers.path_utils import get_lifecycle_config_path
 import typer
 
-config_path = Path("lifecycle") / CONFIG_FILE
+config_path = get_lifecycle_config_path()
 
 
 def load_config() -> dict:

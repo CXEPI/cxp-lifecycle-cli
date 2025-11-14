@@ -64,6 +64,7 @@ def validate_creds(creds_path: str = None) -> None:
     """
     # Simple caching to avoid redundant validation of the same path
     # If we've already validated with this exact path and have credentials loaded, skip
+    # Use normalized paths for comparison to handle different separators
     last_path = getattr(general_config, "_last_validated_path", None)
     if creds_path == last_path and general_config.cx_cli_service_accounts_credentials:
         return
@@ -72,9 +73,9 @@ def validate_creds(creds_path: str = None) -> None:
         # If creds_path is a directory, append "credentials.json" to it
         path = Path(creds_path)
         if path.is_dir():
-            file_path = os.path.join(creds_path, "credentials.json")
+            file_path = str(path / "credentials.json")
         else:
-            file_path = creds_path
+            file_path = str(path)
     else:
         file_path = general_config.creds_filename
 
