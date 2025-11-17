@@ -209,48 +209,51 @@ def upload_services_config_to_s3(
     return services_payload, services_to_deploy
 
 
-def update_application_metadata_if_needed(api, app_id, local_metadata):
+def update_application_metadata(api, app_id, metadata) -> None:
     """
     Compare local metadata with server metadata and update if necessary.
 
     Args:
         api: APIClient instance to interact with the server.
         app_id: Application ID.
-        local_metadata: Metadata from the local configuration file.
+        metadata: Metadata to update in the application.
     """
-    response = api.get(
-        f"/cxp-iam/api/v1/applications/{app_id}/metadata",
+    typer.secho(
+        "Updating server metadata...",
+        fg=typer.colors.BRIGHT_YELLOW,
+    )
+    update_response = api.patch(
+        f"/lifecycle/api/v1/deployment/applications/{app_id}",
+        json=metadata,
         headers={"Content-Type": "application/json"},
     )
 
-    if response.status_code != 200:
+    if update_response.status_code != 200:
         typer.secho(
-            f"Failed to fetch application metadata: {response.text}",
+            f"Failed to update application metadata: {update_response.text}",
             fg=typer.colors.BRIGHT_RED,
         )
         raise typer.Exit(1)
 
-    server_metadata = response.json()
+    typer.secho("Application metadata updated successfully.", fg=typer.colors.BRIGHT_GREEN)
 
-    if local_metadata != server_metadata:
-        typer.secho(
-            "Local metadata differs from server metadata. Updating...",
-            fg=typer.colors.BRIGHT_YELLOW,
-        )
-        update_response = api.put(
-            f"/cxp-iam/api/v1/applications/{app_id}/metadata",
-            json=local_metadata,
-            headers={"Content-Type": "application/json"},
-        )
 
-        if update_response.status_code != 200:
-            typer.secho(
-                f"Failed to update application metadata: {update_response.text}",
-                fg=typer.colors.BRIGHT_RED,
-            )
-            raise typer.Exit(1)
+def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
+    """This function replaces server metadata keys to match local metadata keys if they differ in naming conventions."""
+    key_mapping = {
+        "name": "name",
+        "description": "description",
+        "leadDeveloper": "lead_developer_email",
+        "gitRepository": "github_url",
+        # "contact_name": ???
+        # "app_version": ???
+    }
+    updated_metadata = {}
+    for server_key, local_key in key_mapping.items():
+        if local_key in local_metadata_keys and server_key in server_response:
+            updated_metadata[local_key] = server_response[server_key]
 
-        typer.secho("Application metadata updated successfully.", fg=typer.colors.BRIGHT_GREEN)
+    return updated_metadata
 
 
 @deploy_commands_app.command("run")
@@ -319,8 +322,11 @@ def deploy(
                 )
                 raise typer.Exit(1)
 
-        # Check and update metadata if needed
-        update_application_metadata_if_needed(api, app_id, local_metadata)
+        server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
+        if local_metadata != server_metadata:
+            diff_metadata = {k: v for k, v in local_metadata.items() if server_metadata.get(k) != v}
+            typer.secho(f"Metadata differences detected: {diff_metadata}", fg=typer.colors.BRIGHT_YELLOW)
+            update_application_metadata(api, app_id, diff_metadata)
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
