@@ -322,8 +322,12 @@ def deploy(
                 raise typer.Exit(1)
         local_metadata = config.get("application", {})
         server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
-        if local_metadata != server_metadata:
-            diff_metadata = {k: v for k, v in local_metadata.items() if server_metadata.get(k) != v}
+        diff_metadata = {
+            k: v
+            for k, v in local_metadata.items()
+            if server_metadata.get(k) != v
+        }
+        if diff_metadata:
             typer.secho(f"Metadata differences detected: {diff_metadata}", fg=typer.colors.BRIGHT_YELLOW)
             update_application_metadata(api, app_id, diff_metadata)
 
