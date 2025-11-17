@@ -282,7 +282,6 @@ def deploy(
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
     app_version = str(config.get("application", {}).get("app_version", {}))
-    local_metadata = config.get("application", {}).get("metadata", {})
 
     if not app_id:
         typer.secho(
@@ -321,7 +320,7 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-
+        local_metadata = config.get("application", {})
         server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
         if local_metadata != server_metadata:
             diff_metadata = {k: v for k, v in local_metadata.items() if server_metadata.get(k) != v}
