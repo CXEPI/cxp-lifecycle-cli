@@ -209,6 +209,50 @@ def upload_services_config_to_s3(
     return services_payload, services_to_deploy
 
 
+def update_application_metadata_if_needed(api, app_id, local_metadata):
+    """
+    Compare local metadata with server metadata and update if necessary.
+
+    Args:
+        api: APIClient instance to interact with the server.
+        app_id: Application ID.
+        local_metadata: Metadata from the local configuration file.
+    """
+    response = api.get(
+        f"/cxp-iam/api/v1/applications/{app_id}/metadata",
+        headers={"Content-Type": "application/json"},
+    )
+
+    if response.status_code != 200:
+        typer.secho(
+            f"Failed to fetch application metadata: {response.text}",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
+
+    server_metadata = response.json()
+
+    if local_metadata != server_metadata:
+        typer.secho(
+            "Local metadata differs from server metadata. Updating...",
+            fg=typer.colors.BRIGHT_YELLOW,
+        )
+        update_response = api.put(
+            f"/cxp-iam/api/v1/applications/{app_id}/metadata",
+            json=local_metadata,
+            headers={"Content-Type": "application/json"},
+        )
+
+        if update_response.status_code != 200:
+            typer.secho(
+                f"Failed to update application metadata: {update_response.text}",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            raise typer.Exit(1)
+
+        typer.secho("Application metadata updated successfully.", fg=typer.colors.BRIGHT_GREEN)
+
+
 @deploy_commands_app.command("run")
 def deploy(
     env: str = typer.Argument("dev"),
@@ -235,6 +279,8 @@ def deploy(
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
     app_version = str(config.get("application", {}).get("app_version", {}))
+    local_metadata = config.get("application", {}).get("metadata", {})
+
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
@@ -245,25 +291,25 @@ def deploy(
     api = APIClient(
         base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path
     )
-    
+
     # Check if application exists in IAM
     iam_response = api.get(
         f"/cxp-iam/api/v1/applications/{app_id}",
         headers={"Content-Type": "application/json"},
     )
-    
+
     if iam_response.status_code == 200:
         # Application exists in IAM, now check if it exists in Developer Studio
         ds_response = api.get(
             f"/lifecycle/api/v1/deployment/applications/{app_id}",
             headers={"Content-Type": "application/json"},
         )
-        
+
         # If application doesn't exist in Developer Studio (404), create it
-        if ds_response.status_code == 404:  
+        if ds_response.status_code == 404:
             # Get application details from IAM response
             iam_app_details = iam_response.json()
-            
+
             try:
                 create_application_in_developer_studio(api, iam_app_details)
             except Exception as e:
@@ -272,6 +318,9 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
+
+        # Check and update metadata if needed
+        update_application_metadata_if_needed(api, app_id, local_metadata)
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
