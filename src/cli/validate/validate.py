@@ -10,6 +10,7 @@ from cli.deploy.deploy import upload_services_config_to_s3
 
 try:
     from sseclient import SSEClient
+
     HAS_SSE = True
 except ImportError:
     HAS_SSE = False
@@ -24,7 +25,12 @@ def _get_status_color(status: str) -> str:
         return typer.colors.BRIGHT_GREEN
     elif "Failed" in status or "REJECTED" in status or "ERROR" in status:
         return typer.colors.BRIGHT_RED
-    elif "Progress" in status or "Pending" in status or "RECEIVED" in status or "Validating" in status:
+    elif (
+        "Progress" in status
+        or "Pending" in status
+        or "RECEIVED" in status
+        or "Validating" in status
+    ):
         return typer.colors.BRIGHT_YELLOW
     elif "Cancel" in status:
         return typer.colors.BRIGHT_MAGENTA
@@ -32,7 +38,9 @@ def _get_status_color(status: str) -> str:
         return typer.colors.BRIGHT_CYAN
 
 
-def _stream_validation_status(validation_id: str, env: str, api: APIClient, services: list) -> dict:
+def _stream_validation_status(
+    validation_id: str, env: str, api: APIClient, services: list
+) -> dict:
     """Stream validation status using SSE until completion or failure"""
     if not HAS_SSE:
         typer.secho(
@@ -47,7 +55,9 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
             fg=typer.colors.BRIGHT_CYAN,
         )
 
-        stream_url = f"{get_deployment_base_url(env)}/status/deployment/stream/{validation_id}"
+        stream_url = (
+            f"{get_deployment_base_url(env)}/status/deployment/stream/{validation_id}"
+        )
         headers = api.get_headers()
 
         completed_services = set()
@@ -69,7 +79,10 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
                         return last_status
                     break
 
-                if "error" in status_data and status_data["error"] == "Deployment not found":
+                if (
+                    "error" in status_data
+                    and status_data["error"] == "Deployment not found"
+                ):
                     typer.secho(
                         f"\n\nValidation not found.",
                         fg=typer.colors.BRIGHT_RED,
@@ -88,11 +101,19 @@ def _stream_validation_status(validation_id: str, env: str, api: APIClient, serv
                         service_status = service_data.get("deployment_status", "")
 
                         is_complete = False
-                        if "Done" in service_status or "Succeeded" in service_status or "Completed" in service_status:
+                        if (
+                            "Done" in service_status
+                            or "Succeeded" in service_status
+                            or "Completed" in service_status
+                        ):
                             is_complete = True
                             status_color = typer.colors.BRIGHT_GREEN
                             icon = "✅"
-                        elif "Failed" in service_status or "REJECTED" in service_status or "ERROR" in service_status:
+                        elif (
+                            "Failed" in service_status
+                            or "REJECTED" in service_status
+                            or "ERROR" in service_status
+                        ):
                             is_complete = True
                             status_color = typer.colors.BRIGHT_RED
                             icon = "❌"
@@ -158,17 +179,26 @@ def _display_validation_results(services_status: dict, services: list):
             status = data.get("deployment_status", "Unknown")
             status_color = _get_status_color(status)
 
-            typer.secho(f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True)
+            typer.secho(
+                f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True
+            )
             typer.secho(f"  Status: {status}", fg=status_color)
 
             if data.get("failure_reason"):
                 has_failures = True
-                typer.secho(f"  Reason: {data['failure_reason']}", fg=typer.colors.BRIGHT_RED)
+                typer.secho(
+                    f"  Reason: {data['failure_reason']}", fg=typer.colors.BRIGHT_RED
+                )
 
             if data.get("validation_details"):
-                typer.secho(f"  Details: {data['validation_details']}", fg=typer.colors.BRIGHT_CYAN)
+                typer.secho(
+                    f"  Details: {data['validation_details']}",
+                    fg=typer.colors.BRIGHT_CYAN,
+                )
         else:
-            typer.secho(f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True)
+            typer.secho(
+                f"\n{service.upper()}:", fg=typer.colors.BRIGHT_WHITE, bold=True
+            )
             typer.secho(f"  Status: No status available", fg=typer.colors.BRIGHT_YELLOW)
 
     typer.secho("\n" + "=" * 60, fg=typer.colors.BRIGHT_BLUE)
@@ -233,7 +263,9 @@ def validate(
         "app_version": app_version,
     }
 
-    typer.secho(f"Validating services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW)
+    typer.secho(
+        f"Validating services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
+    )
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path

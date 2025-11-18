@@ -65,6 +65,31 @@ uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cl
 pip install --upgrade git+https://github.com/CXEPI/cxp-lifecycle-cli
 ```
 
+## 🪟 Windows Support
+
+The CLI now fully supports Windows! All features work cross-platform including file operations, path handling, and cloud deployments.
+
+### Upgrading from Previous Versions (Windows Users)
+
+If you installed the CLI before Windows support was added, you'll need to perform a clean reinstall to get the fixes:
+
+```bash
+# 1. Uninstall the old version
+uv tool uninstall lifecycle-cli
+
+# 2. Clear the UV cache
+uv cache clean
+
+# 3. Reinstall with no cache
+uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cli
+```
+
+After reinstalling, verify the installation:
+```bash
+cx-cli --help
+cx-cli version
+```
+
 ## ⚙️ Configuration
 
 The CLI can be configured using a configuration file located at `~/.cx-cli/config.json`.

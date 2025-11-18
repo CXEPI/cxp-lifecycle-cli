@@ -1,6 +1,5 @@
 import typer
 from cli.helpers.api_client import APIClient
-from cli.helpers.file import load_config
 from cli.config import get_deployment_base_url
 
 
