@@ -36,6 +36,9 @@ class APIClient:
     def put(self, endpoint: str, json=None, **kwargs):
         return self.session.put(self._build_url(endpoint), json=json, **kwargs)
 
+    def patch(self, endpoint: str, json=None, **kwargs):
+        return self.session.patch(self._build_url(endpoint), json=json, **kwargs)
+
     def delete(self, endpoint: str, **kwargs):
         return self.session.delete(self._build_url(endpoint), **kwargs)
 

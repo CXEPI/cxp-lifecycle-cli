@@ -241,7 +241,7 @@ def update_application_metadata(api, app_id, metadata) -> None:
 def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     """This function replaces server metadata keys to match local metadata keys if they differ in naming conventions."""
     key_mapping = {
-        "name": "name",
+        "name": "display_name",
         "description": "description",
         "leadDeveloper": "lead_developer_email",
         "gitRepository": "github_url",
@@ -324,8 +324,8 @@ def deploy(
         server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
         diff_metadata = {
             k: v
-            for k, v in local_metadata.items()
-            if server_metadata.get(k) != v
+            for k, v in server_metadata.items()
+            if k in local_metadata and local_metadata[k] != v
         }
         if diff_metadata:
             typer.secho(f"Metadata differences detected: {diff_metadata}", fg=typer.colors.BRIGHT_YELLOW)
