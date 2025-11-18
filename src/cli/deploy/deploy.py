@@ -320,7 +320,7 @@ def deploy(
         local_metadata = config.get("application", {})
         if local_metadata.get("display_name") != ds_response.json().get("name"):
             typer.secho(
-                "The application name was changed in the local config file however it's not allowed.",
+                "The CLI detected a name change in the local config file however it's not allowed to modify it in the server.",
                 fg=typer.colors.BRIGHT_YELLOW,
             )
             raise typer.Exit(1)
