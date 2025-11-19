@@ -4,7 +4,6 @@ import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from pathlib import Path
 
 import requests
 import typer
@@ -17,6 +16,12 @@ from cli.config import get_deployment_base_url, BASE_URL_BY_ENV
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import load_config, load_env, inject_env_into_schema
 from cli.helpers.errors import handle_env_error
+from cli.helpers.path_utils import (
+    get_lifecycle_path,
+    get_lifecycle_env_path,
+    get_lifecycle_config_path,
+    join_s3_path,
+)
 from cli.register.register import create_application_in_developer_studio
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
@@ -31,8 +36,8 @@ def upload_services_config_to_s3(
 ) -> tuple[dict, list]:
     try:
         config = load_config()
-        lifecycle_path = Path("lifecycle")
-        env_path = os.path.join(lifecycle_path / "lifecycle_envs", f"{env}.env")
+        lifecycle_path = get_lifecycle_path()
+        env_path = str(get_lifecycle_env_path(env))
         env_vars = load_env(env_path)
         services_payload = {}
 
@@ -51,22 +56,27 @@ def upload_services_config_to_s3(
                 return {}, []
 
             # Create choices with all services selected by default
-            choices = [questionary.Choice(service, checked=True) for service in all_services]
+            choices = [
+                questionary.Choice(service, checked=True) for service in all_services
+            ]
 
             # Custom style with transparent background
-            custom_style = Style([
-                ('checkbox-selected', 'fg:#00aa00 bold'),  # Green checkmark
-                ('checkbox', 'fg:#ffffff'),  # White for unselected
-                ('selected', 'bg: fg:'),  # Transparent background
-                ('pointer', 'fg:#00aa00 bold'),  # Green pointer
-                ('highlighted', 'fg:#00aa00 bg:'),  # Green text, transparent background
-                ('answer', 'fg:#00aa00 bold'),  # Green for final answer
-            ])
+            custom_style = Style(
+                [
+                    ("checkbox-selected", "fg:#00aa00 bold"),  # Green checkmark
+                    ("checkbox", "fg:#ffffff"),  # White for unselected
+                    ("selected", "bg: fg:"),  # Transparent background
+                    ("pointer", "fg:#00aa00 bold"),  # Green pointer
+                    (
+                        "highlighted",
+                        "fg:#00aa00 bg:",
+                    ),  # Green text, transparent background
+                    ("answer", "fg:#00aa00 bold"),  # Green for final answer
+                ]
+            )
 
             selected_services = questionary.checkbox(
-                "Select services to deploy:",
-                choices=choices,
-                style=custom_style
+                "Select services to deploy:", choices=choices, style=custom_style
             ).ask()
 
             if selected_services is None:  # User cancelled
@@ -97,20 +107,23 @@ def upload_services_config_to_s3(
 
         for service in services_to_deploy:
             folder_path = config["core_services"][service]
-            key_prefix = f"lifecycle/{app_id}/{deployment_id}/{service}"
+            key_prefix = join_s3_path("lifecycle", app_id, str(deployment_id), service)
 
             for root, _, files in os.walk(folder_path):
                 for file in files:
                     full_path = os.path.join(root, file)
                     if os.path.isfile(full_path):
                         relative_path = os.path.relpath(full_path, folder_path)
-                        s3_key = os.path.join(key_prefix, relative_path)
-                        upload_tasks.append({
-                            'service': service,
-                            'file_path': full_path,
-                            's3_key': s3_key,
-                            'folder_path': folder_path
-                        })
+                        # Convert relative_path to POSIX for S3
+                        s3_key = join_s3_path(key_prefix, relative_path)
+                        upload_tasks.append(
+                            {
+                                "service": service,
+                                "file_path": full_path,
+                                "s3_key": s3_key,
+                                "folder_path": folder_path,
+                            }
+                        )
 
             services_payload[service] = {"configuration_file_path": key_prefix}
 
@@ -121,30 +134,36 @@ def upload_services_config_to_s3(
             fg=typer.colors.BRIGHT_CYAN,
         )
 
-        upload_tasks.append({
-            'service': 'lifecycle',
-            'file_path': str(Path("lifecycle") / CONFIG_FILE),
-            's3_key': f"lifecycle/{app_id}/{deployment_id}/{CONFIG_FILE}",
-            'folder_path': str(lifecycle_path)
-        })
+        upload_tasks.append(
+            {
+                "service": "lifecycle",
+                "file_path": str(get_lifecycle_config_path()),
+                "s3_key": join_s3_path(
+                    "lifecycle", app_id, str(deployment_id), CONFIG_FILE
+                ),
+                "folder_path": str(lifecycle_path),
+            }
+        )
 
         def upload_file(task):
             try:
                 # Generate presigned URL
                 response = api.post(
                     "s3/generate_presigned_url",
-                    json={"key": task['s3_key']},
+                    json={"key": task["s3_key"]},
                     headers={"Content-Type": "application/json"},
                 )
                 if response.status_code != 200:
                     return f"Failed to generate presigned URL for {task['file_path']}: {response.text}"
 
                 presigned_url = response.json().get("url")
-                file_name = os.path.basename(task['file_path'])
+                file_name = os.path.basename(task["file_path"])
 
                 # Upload file
                 if file_name.endswith(".json") or file_name.endswith(".yaml"):
-                    injected_content = inject_env_into_schema(task['file_path'], env_vars)
+                    injected_content = inject_env_into_schema(
+                        task["file_path"], env_vars
+                    )
                     upload_response = requests.put(
                         presigned_url,
                         data=injected_content.encode(),
@@ -154,7 +173,7 @@ def upload_services_config_to_s3(
                         },
                     )
                 else:
-                    with open(task['file_path'], "rb") as file_data:
+                    with open(task["file_path"], "rb") as file_data:
                         upload_response = requests.put(
                             presigned_url,
                             data=file_data,
@@ -176,7 +195,9 @@ def upload_services_config_to_s3(
         errors = []
 
         with ThreadPoolExecutor(max_workers=4) as executor:
-            future_to_task = {executor.submit(upload_file, task): task for task in upload_tasks}
+            future_to_task = {
+                executor.submit(upload_file, task): task for task in upload_tasks
+            }
 
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
@@ -312,9 +333,7 @@ def deploy(
         )
         raise typer.Exit(1)
 
-    api = APIClient(
-        base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path
-    )
+    api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path)
 
     # Check if application exists in IAM
     iam_response = api.get(
@@ -383,7 +402,9 @@ def deploy(
         "app_id": app_id,
         "app_version": app_version,
     }
-    typer.secho(f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW)
+    typer.secho(
+        f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
+    )
     response = api.post(
         "/msk/deploy", json=payload, headers={"Content-Type": "application/json"}
     )
@@ -394,7 +415,10 @@ def deploy(
         )
         return
 
-    typer.secho(f"Deployment {deployment_id} initiated successfully.", fg=typer.colors.BRIGHT_GREEN)
+    typer.secho(
+        f"Deployment {deployment_id} initiated successfully.",
+        fg=typer.colors.BRIGHT_GREEN,
+    )
 
 
 @deploy_commands_app.command("get-status")
@@ -506,7 +530,8 @@ def get_status(
 
             except json.JSONDecodeError:
                 typer.secho(
-                    f"Error parsing status update: {event.data}", fg=typer.colors.BRIGHT_RED
+                    f"Error parsing status update: {event.data}",
+                    fg=typer.colors.BRIGHT_RED,
                 )
 
     except ImportError:

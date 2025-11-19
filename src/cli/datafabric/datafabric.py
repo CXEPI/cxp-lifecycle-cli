@@ -1,5 +1,3 @@
-from cli.datafabric.connector import connectors_commands
-from cli.helpers.custom_typer import CustomTyper
 
 # df_app = CustomTyper("datafabric commands")
 #

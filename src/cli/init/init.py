@@ -7,13 +7,14 @@ import yaml
 from cli.helpers.api_client import APIClient
 from cli.helpers.file import save_config
 from cli.helpers.prompts import prompt_application, prompt_core_services
+from cli.helpers.path_utils import get_lifecycle_path, to_posix_path
 
 
 def create_lifecycle_folder():
     """
     Create the lifecycle folder if it doesn't exist.
     """
-    lifecycle_path = Path("lifecycle")
+    lifecycle_path = get_lifecycle_path()
     lifecycle_path.mkdir(exist_ok=True)
     return lifecycle_path
 
@@ -93,33 +94,35 @@ def create_service_folders(lifecycle_path, core_services, api):
 
             (service_path / "data_models").mkdir(parents=True, exist_ok=True)
             (service_path / "data_models" / "sample").mkdir(parents=True, exist_ok=True)
-            snacks_path = Path("data_models") / "sample"
-            schema = fetch_schema(api, f"{snacks_path}/sample_model.example.json")
-            schema_path = service_path / snacks_path / f"sample_model.example.json"
-            schema_json = json.dumps(schema, indent=2)
+            snacks_path_fs = Path("data_models") / "sample"  # filesystem
+            snacks_path_api = to_posix_path(snacks_path_fs)  # URL-safe POSIX string
+
+            # Fetch sample model
+            schema = fetch_schema(api, f"{snacks_path_api}/sample_model.example.json")
+            schema_path = service_path / snacks_path_fs / "sample_model.example.json"
             with open(schema_path, "w", encoding="utf-8") as schema_file:
-                schema_file.write(schema_json)
+                schema_file.write(json.dumps(schema, indent=2))
+
             snacks_folders = ["entity", "relationship", "type"]
+
             for folder in snacks_folders:
-                folder_path = service_path / snacks_path / folder
+                folder_path = service_path / snacks_path_fs / folder
                 folder_path.mkdir(parents=True, exist_ok=True)
+
+                # Base schema
                 schema = fetch_schema(
-                    api, f"{snacks_path}/{folder}/{folder}.example.json"
+                    api, f"{snacks_path_api}/{folder}/{folder}.example.json"
                 )
-                with open(
-                    folder_path / f"{folder}.example.json", "w", encoding="utf-8"
-                ) as schema_file:
-                    schema_file.write(json.dumps(schema, indent=2))
+                with open(folder_path / f"{folder}.example.json", "w", encoding="utf-8") as fp:
+                    fp.write(json.dumps(schema, indent=2))
+
+                # Special case: entity_second
                 if folder == "entity":
                     schema = fetch_schema(
-                        api, f"{snacks_path}/{folder}/{folder}_second.example.json"
+                        api, f"{snacks_path_api}/{folder}/{folder}_second.example.json"
                     )
-                    with open(
-                        folder_path / f"{folder}_second.example.json",
-                        "w",
-                        encoding="utf-8",
-                    ) as schema_file:
-                        schema_file.write(json.dumps(schema, indent=2))
+                    with open(folder_path / "entity_second.example.json", "w", encoding="utf-8") as fp:
+                        fp.write(json.dumps(schema, indent=2))
 
         if service == "iam" or service == "baqs" or service == "agent":
             schema = fetch_schema(api, f"{service}.json")

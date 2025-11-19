@@ -1,8 +1,6 @@
 from pydantic_settings import BaseSettings
-from os.path import expanduser
 import json
-from pathlib import Path
-from typing import Optional
+from cli.helpers.path_utils import get_credentials_path
 
 
 class GeneralCliSettings(BaseSettings):
@@ -10,7 +8,7 @@ class GeneralCliSettings(BaseSettings):
     General settings for the CLI application
     """
 
-    creds_filename: str = f"{expanduser('~')}/.cx-cli/credentials.json"
+    creds_filename: str = str(get_credentials_path())
     required_fields_in_credentials_file: set[str] = {"serviceAccounts"}
     cx_cli_service_accounts_credentials: dict = {}
 
@@ -31,7 +29,9 @@ class VersionCheckSettings:
     """
 
     def __init__(self):
-        self.config_file = Path(expanduser("~/.cx-cli/config.json"))
+        from cli.helpers.path_utils import get_config_path
+
+        self.config_file = get_config_path()
         self._config = self._load_config()
 
     def _load_config(self) -> dict:
