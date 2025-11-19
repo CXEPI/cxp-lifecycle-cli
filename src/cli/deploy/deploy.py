@@ -423,7 +423,7 @@ def deploy(
         "description": config.get("application", {}).get("description"),
         "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
         "github_url": config.get("application", {}).get("github_url"),
-        "contact_name": config.get("application", {}).get("contact_name"),
+        "app_name": config.get("application", {}).get("display_name"),
     }
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
