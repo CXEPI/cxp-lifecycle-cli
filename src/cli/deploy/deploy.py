@@ -1,5 +1,6 @@
 from cli.config import CONFIG_FILE
 import uuid
+import re
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -234,35 +235,6 @@ def upload_services_config_to_s3(
     return services_payload, services_to_deploy
 
 
-def update_application(api, app_id, data) -> None:
-    """
-    Updates application metadata in Lifecycle-deployment API.
-
-    Args:
-        api: APIClient instance to interact with the server.
-        app_id: Application ID.
-        data: data to update in the application.
-    """
-    typer.secho(
-        "Updating application...",
-        fg=typer.colors.BRIGHT_YELLOW,
-    )
-    update_response = api.patch(
-        f"/lifecycle/api/v1/deployment/applications/{app_id}",
-        json=data,
-        headers={"Content-Type": "application/json"},
-    )
-
-    if update_response.status_code != 200:
-        typer.secho(
-            f"Failed to update application: {update_response.text}",
-            fg=typer.colors.BRIGHT_RED,
-        )
-        raise typer.Exit(1)
-    else:
-        return update_response
-
-
 def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     """This function replaces server metadata keys to match local metadata keys if they differ in naming conventions."""
     updated_metadata = {}
@@ -273,16 +245,67 @@ def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     return updated_metadata
 
 
-def is_metadata_update_required(config, ds_response, api, app_id) -> None:
-    local_metadata = config.get("application", {})
-    if local_metadata.get("display_name") != ds_response.json().get("name"):
+def check_name_change(local_name, server_name):
+    if local_name != server_name:
         typer.secho(
             "The CLI detected a name change in the local config file however it's not allowed to modify it in the server.",
             fg=typer.colors.BRIGHT_YELLOW,
         )
         raise typer.Exit(1)
 
-    server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
+
+def parse_version(version_str: str) -> tuple[int, ...]:
+    """Parse version string like '1.0.0' into tuple of integers (1, 0, 0)"""
+    try:
+        parts = version_str.split(".")
+        if len(parts) != 3:
+            raise ValueError(f"Version must be in format x.y.z, got: {version_str}")
+        return tuple(int(part) for part in parts)
+    except (ValueError, AttributeError) as e:
+        typer.secho(
+            f"Invalid version format: {version_str}. Expected format: x.y.z (e.g., 1.0.0)",
+            fg=typer.colors.BRIGHT_RED)
+        raise typer.Exit(1)
+
+
+def check_version_bump(last_successful_deployment_id, last_successful_deployment, app_version):
+    # If there's no last deployment, any version is acceptable
+    if not last_successful_deployment_id:
+        return
+    last_successful_deployment_version = last_successful_deployment.get("version")
+    if not last_successful_deployment_version:
+        return
+
+    typer.secho(f"Parsing version: {app_version}", fg=typer.colors.BRIGHT_YELLOW)
+    requested_version = parse_version(app_version)
+    last_version = parse_version(last_successful_deployment_version)
+
+    if requested_version <= last_version:
+        typer.secho(
+            f"Version {requested_version} must be higher than the last deployed version {last_successful_deployment_version}",
+            fg=typer.colors.BRIGHT_RED)
+        raise typer.Exit(1)
+
+
+def check_lead_developer_valid(lead_developer_email):
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", lead_developer_email):
+        typer.secho(
+            f"Lead developer email '{lead_developer_email}' is invalid in the local config.",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
+
+
+def is_metadata_update_valid(config, server_data) -> None:
+    local_metadata = config.get("application", {})
+    check_lead_developer_valid(local_metadata.get("lead_developer_email"))
+    check_name_change(local_metadata.get("display_name"), server_data.get("name"))
+    check_version_bump(
+        server_data.get("lastSuccessfulDeploymentId"),
+        server_data.get("lastSuccessfulDeployment"),
+        str(local_metadata.get("app_version", ""))
+    )
+    server_metadata = replace_server_metadata_keys(server_data, local_metadata.keys())
     diff_metadata = {
         k: v
         for k, v in local_metadata.items()
@@ -292,12 +315,7 @@ def is_metadata_update_required(config, ds_response, api, app_id) -> None:
     if diff_metadata:
         diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
         typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
-        update_response = update_application(api, app_id, diff_metadata)
-        server_metadata_str = "\n".join([
-            f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
-        ])
-        typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}",
-                    fg=typer.colors.BRIGHT_GREEN)
+        typer.secho("Application metadata will be updated accordingly.", fg=typer.colors.BRIGHT_GREEN)
 
 
 @deploy_commands_app.command("run")
@@ -362,7 +380,7 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-        is_metadata_update_required(config, ds_response, api, app_id)
+        is_metadata_update_valid(config, ds_response.json())
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
@@ -402,6 +420,10 @@ def deploy(
         "services": services_payload,
         "app_id": app_id,
         "app_version": app_version,
+        "description": config.get("application", {}).get("description"),
+        "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
+        "github_url": config.get("application", {}).get("github_url"),
+        "contact_name": config.get("application", {}).get("contact_name"),
     }
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
