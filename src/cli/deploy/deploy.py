@@ -213,36 +213,33 @@ def upload_services_config_to_s3(
     return services_payload, services_to_deploy
 
 
-def update_application_metadata(api, app_id, metadata) -> None:
+def update_application(api, app_id, data) -> None:
     """
-    Compare local metadata with server metadata and update if necessary.
+    Updates application metadata in Lifecycle-deployment API.
 
     Args:
         api: APIClient instance to interact with the server.
         app_id: Application ID.
-        metadata: Metadata to update in the application.
+        data: data to update in the application.
     """
     typer.secho(
-        "Updating application metadata...",
+        "Updating application...",
         fg=typer.colors.BRIGHT_YELLOW,
     )
     update_response = api.patch(
         f"/lifecycle/api/v1/deployment/applications/{app_id}",
-        json=metadata,
+        json=data,
         headers={"Content-Type": "application/json"},
     )
 
     if update_response.status_code != 200:
         typer.secho(
-            f"Failed to update application metadata: {update_response.text}",
+            f"Failed to update application: {update_response.text}",
             fg=typer.colors.BRIGHT_RED,
         )
         raise typer.Exit(1)
-
-    server_metadata_str = "\n".join([
-        f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
-    ])
-    typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}", fg=typer.colors.BRIGHT_GREEN)
+    else:
+        return update_response
 
 
 def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
@@ -335,7 +332,12 @@ def deploy(
         if diff_metadata:
             diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
             typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
-            update_application_metadata(api, app_id, diff_metadata)
+            update_response = update_application(api, app_id, diff_metadata)
+            server_metadata_str = "\n".join([
+                f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
+            ])
+            typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}",
+                        fg=typer.colors.BRIGHT_GREEN)
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
