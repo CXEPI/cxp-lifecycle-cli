@@ -252,6 +252,32 @@ def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     return updated_metadata
 
 
+def is_metadata_update_required(config, ds_response, api, app_id) -> None:
+    local_metadata = config.get("application", {})
+    if local_metadata.get("display_name") != ds_response.json().get("name"):
+        typer.secho(
+            "The CLI detected a name change in the local config file however it's not allowed to modify it in the server.",
+            fg=typer.colors.BRIGHT_YELLOW,
+        )
+        raise typer.Exit(1)
+
+    server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
+    diff_metadata = {
+        k: v
+        for k, v in local_metadata.items()
+        if k in server_metadata and server_metadata[k] != v
+    }
+
+    if diff_metadata:
+        diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
+        typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
+        update_response = update_application(api, app_id, diff_metadata)
+        server_metadata_str = "\n".join([
+            f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
+        ])
+        typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}",
+                    fg=typer.colors.BRIGHT_GREEN)
+
 @deploy_commands_app.command("run")
 def deploy(
     env: str = typer.Argument("dev"),
@@ -316,28 +342,7 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-        local_metadata = config.get("application", {})
-        if local_metadata.get("display_name") != ds_response.json().get("name"):
-            typer.secho(
-                "The CLI detected a name change in the local config file however it's not allowed to modify it in the server.",
-                fg=typer.colors.BRIGHT_YELLOW,
-            )
-            raise typer.Exit(1)
-        server_metadata = replace_server_metadata_keys(ds_response.json(), local_metadata.keys())
-        diff_metadata = {
-            k: v
-            for k, v in local_metadata.items()
-            if k in server_metadata and server_metadata[k] != v
-        }
-        if diff_metadata:
-            diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
-            typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
-            update_response = update_application(api, app_id, diff_metadata)
-            server_metadata_str = "\n".join([
-                f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
-            ])
-            typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}",
-                        fg=typer.colors.BRIGHT_GREEN)
+        is_metadata_update_required(config, ds_response, api, app_id)
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
