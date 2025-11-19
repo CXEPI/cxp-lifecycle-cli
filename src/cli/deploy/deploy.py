@@ -299,6 +299,7 @@ def is_metadata_update_required(config, ds_response, api, app_id) -> None:
         typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}",
                     fg=typer.colors.BRIGHT_GREEN)
 
+
 @deploy_commands_app.command("run")
 def deploy(
     env: str = typer.Argument("dev"),
