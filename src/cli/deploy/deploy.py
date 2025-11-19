@@ -20,7 +20,11 @@ from cli.helpers.errors import handle_env_error
 from cli.register.register import create_application_in_developer_studio
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
-
+METADATA_MAPPING = {  # keys are server keys, values are local config keys
+        "description": "description",
+        "leadDeveloper": "lead_developer_email",
+        "gitRepository": "github_url",
+    }
 
 def upload_services_config_to_s3(
     deployment_id, app_id, env: str, creds_path: str = None, deploy_all: bool = False
@@ -219,7 +223,7 @@ def update_application_metadata(api, app_id, metadata) -> None:
         metadata: Metadata to update in the application.
     """
     typer.secho(
-        "Updating server metadata...",
+        "Updating application metadata...",
         fg=typer.colors.BRIGHT_YELLOW,
     )
     update_response = api.patch(
@@ -235,18 +239,16 @@ def update_application_metadata(api, app_id, metadata) -> None:
         )
         raise typer.Exit(1)
 
-    typer.secho("Application metadata updated successfully.", fg=typer.colors.BRIGHT_GREEN)
+    server_metadata_str = "\n".join([
+        f"  • {k}: '{v}'" for k, v in update_response.json().items() if k in METADATA_MAPPING
+    ])
+    typer.secho(f"Application metadata updated successfully:\n{server_metadata_str}", fg=typer.colors.BRIGHT_GREEN)
 
 
 def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     """This function replaces server metadata keys to match local metadata keys if they differ in naming conventions."""
-    key_mapping = {
-        "description": "description",
-        "leadDeveloper": "lead_developer_email",
-        "gitRepository": "github_url",
-    }
     updated_metadata = {}
-    for server_key, local_key in key_mapping.items():
+    for server_key, local_key in METADATA_MAPPING.items():
         if local_key in local_metadata_keys and server_key in server_response:
             updated_metadata[local_key] = server_response[server_key]
 
@@ -331,7 +333,8 @@ def deploy(
             if k in server_metadata and server_metadata[k] != v
         }
         if diff_metadata:
-            typer.secho(f"Metadata differences detected: {diff_metadata}", fg=typer.colors.BRIGHT_YELLOW)
+            diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
+            typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
             update_application_metadata(api, app_id, diff_metadata)
 
     api = APIClient(
