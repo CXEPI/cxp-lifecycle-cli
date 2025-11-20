@@ -296,8 +296,32 @@ def check_lead_developer_valid(lead_developer_email):
         raise typer.Exit(1)
 
 
+def check_description(description):
+    if not description or not description.strip():
+        typer.secho(
+            "Description cannot be empty in the local config.",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
+
+
+def check_github_url(github_url):
+    allowed_hosts = {"github.com", "wwwin-github.cisco.com"}
+    pattern = re.compile(
+        r"^https://(" + "|".join(re.escape(host) for host in allowed_hosts) + r")/.+"
+    )
+    if not pattern.match(github_url):
+        typer.secho(
+            f"GitHub URL '{github_url}' is invalid in the local config.\n"
+            f"Must start with {'or '.join([h for h in allowed_hosts])}",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
+
+
 def is_metadata_update_valid(config, server_data) -> None:
     local_metadata = config.get("application", {})
+    check_description(local_metadata.get("description"))
     check_lead_developer_valid(local_metadata.get("lead_developer_email"))
     check_name_change(local_metadata.get("display_name"), server_data.get("name"))
     check_version_bump(
@@ -305,6 +329,7 @@ def is_metadata_update_valid(config, server_data) -> None:
         server_data.get("lastSuccessfulDeployment"),
         str(local_metadata.get("app_version", ""))
     )
+    check_github_url(local_metadata.get("github_url"))
     server_metadata = replace_server_metadata_keys(server_data, local_metadata.keys())
     diff_metadata = {
         k: v
