@@ -405,7 +405,10 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-        is_metadata_update_valid(config, ds_response.json())
+
+        # Application exists in Developer Studio, validate metadata updates
+        else:
+            is_metadata_update_valid(config, ds_response.json())
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
