@@ -307,10 +307,8 @@ def check_description(description):
 
 def check_github_url(github_url):
     allowed_hosts = {"github.com", "wwwin-github.cisco.com"}
-    pattern = re.compile(
-        r"^https://(" + "|".join(re.escape(host) for host in allowed_hosts) + r")/.+"
-    )
-    if not pattern.match(github_url):
+    parsed = re.match(r"https?://([^/]+)(/.*)?", v)
+    if not parsed or parsed.group(1) not in allowed_hosts:
         typer.secho(
             f"GitHub URL '{github_url}' is invalid in the local config.\n"
             f"Must start with {'or '.join([h for h in allowed_hosts])}",
@@ -408,7 +406,15 @@ def deploy(
 
         # Application exists in Developer Studio, validate metadata updates
         else:
+            typer.secho(
+                "Application exists in Developer Studio, validating local metadata", fg=typer.colors.BRIGHT_BLUE,)
             is_metadata_update_valid(config, ds_response.json())
+    else:
+        typer.secho(
+            f"Application with ID {app_id} not found in IAM. Please register the application first.",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
 
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
