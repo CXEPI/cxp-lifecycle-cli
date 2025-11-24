@@ -307,7 +307,7 @@ def check_description(description):
 
 def check_github_url(github_url):
     allowed_hosts = {"github.com", "wwwin-github.cisco.com"}
-    parsed = re.match(r"https?://([^/]+)(/.*)?", v)
+    parsed = re.match(r"https?://([^/]+)(/.*)?", github_url)
     if not parsed or parsed.group(1) not in allowed_hosts:
         typer.secho(
             f"GitHub URL '{github_url}' is invalid in the local config.\n"
