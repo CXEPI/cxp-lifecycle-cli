@@ -323,6 +323,7 @@ def deploy(
             headers={"Content-Type": "application/json"},
         )
         ds_status_code = ds_response.status_code
+        detail = json.loads(ds_response.text).get("detail")
         if ds_status_code == 200:
             get_metadata_diff(config, ds_response.json())
         elif ds_status_code == 404:
@@ -340,7 +341,7 @@ def deploy(
                 raise typer.Exit(1)
         else:
             typer.secho(
-                f"Error validating application in Developer Studio ({ds_status_code})",
+                f"Error validating application in Developer Studio: {detail}",
                 fg=typer.colors.BRIGHT_RED,
             )
             raise typer.Exit(1)
