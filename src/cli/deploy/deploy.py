@@ -127,7 +127,7 @@ def upload_services_config_to_s3(
         total_files = len(upload_tasks)
         typer.secho(
             f"Uploading {total_files} files across {len(services_to_deploy)} services...",
-            fg=typer.colors.BRIGHT_CYAN,
+            fg=typer.colors.MAGENTA,
         )
 
         upload_tasks.append(
@@ -203,7 +203,7 @@ def upload_services_config_to_s3(
                 if result is None:  # Success
                     typer.secho(
                         f"✓ [{completed_count}/{total_files}] {task['service']}/{os.path.basename(task['file_path'])}",
-                        fg=typer.colors.BRIGHT_GREEN,
+                        fg=typer.colors.MAGENTA,
                     )
                 else:  # Error
                     errors.append(result)
@@ -504,7 +504,7 @@ def _display_deployment_status(deployment_id: str, env: str) -> None:
         failure_reason = (
             f" - {data['failure_reason']}" if data.get("failure_reason") else ""
         )
-        message = f" {service}: {data['deployment_status']}{failure_reason}"
+        message = f" {service}: {data['deployment_status']}\n{failure_reason}\n"
         typer.secho(message, fg=status_color)
 
 
