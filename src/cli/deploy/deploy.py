@@ -343,6 +343,12 @@ def deploy(
                 f"Error validating application in Developer Studio ({ds_status_code})",
                 fg=typer.colors.BRIGHT_RED,
             )
+            response_json = json.loads(ds_response.text)
+            errors = response_json.get("detail", {}).get("errors", [])
+            if errors:
+                typer.secho("Validation errors:", fg=typer.colors.BRIGHT_RED)
+                for error in errors:
+                    typer.secho(f"  • {error}", fg=typer.colors.RED)
             raise typer.Exit(1)
     else:
         typer.secho(
