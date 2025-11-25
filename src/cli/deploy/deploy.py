@@ -307,7 +307,7 @@ def deploy(
     deployment_id = uuid.uuid4()
     payload = {
         "deployment_id": str(deployment_id),
-        "services": {},
+        "services": {"data_fabric": {"configuration_file_path": "key_prefix"}},  # Placeholder, will be replaced later
         "app_id": app_id,
         "app_version": app_version,
         "description": config.get("application", {}).get("description"),
@@ -380,7 +380,7 @@ def deploy(
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
-    payload.update({"services": services_payload})
+    payload["services"] = services_payload
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
     )
