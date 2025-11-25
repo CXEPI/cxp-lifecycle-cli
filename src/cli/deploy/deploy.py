@@ -245,89 +245,8 @@ def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
     return updated_metadata
 
 
-def check_name_change(local_name, server_name):
-    if local_name != server_name:
-        typer.secho(
-            "The CLI detected a name change in the local config file however it's not allowed to modify it in the server.",
-            fg=typer.colors.BRIGHT_YELLOW,
-        )
-        raise typer.Exit(1)
-
-
-def parse_version(version_str: str) -> tuple[int, ...]:
-    """Parse version string like '1.0.0' into tuple of integers (1, 0, 0)"""
-    try:
-        parts = version_str.split(".")
-        if len(parts) != 3:
-            raise ValueError(f"Version must be in format x.y.z, got: {version_str}")
-        return tuple(int(part) for part in parts)
-    except (ValueError, AttributeError) as e:
-        typer.secho(
-            f"Invalid version format: {version_str}. Expected format: x.y.z (e.g., 1.0.0)",
-            fg=typer.colors.BRIGHT_RED)
-        raise typer.Exit(1)
-
-
-def check_version_bump(last_successful_deployment_id, last_successful_deployment, app_version):
-    # If there's no last deployment, any version is acceptable
-    if not last_successful_deployment_id:
-        return
-    last_successful_deployment_version = last_successful_deployment.get("version")
-    if not last_successful_deployment_version:
-        return
-
-    typer.secho(f"Parsing version: {app_version}", fg=typer.colors.BRIGHT_YELLOW)
-    requested_version = parse_version(app_version)
-    last_version = parse_version(last_successful_deployment_version)
-
-    if requested_version <= last_version:
-        typer.secho(
-            f"Version {requested_version} must be higher than the last deployed version {last_successful_deployment_version}",
-            fg=typer.colors.BRIGHT_RED)
-        raise typer.Exit(1)
-
-
-def check_lead_developer_valid(lead_developer_email):
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", lead_developer_email):
-        typer.secho(
-            f"Lead developer email '{lead_developer_email}' is invalid in the local config.",
-            fg=typer.colors.BRIGHT_RED,
-        )
-        raise typer.Exit(1)
-
-
-def check_description(description):
-    if not description or not description.strip():
-        typer.secho(
-            "Description cannot be empty in the local config.",
-            fg=typer.colors.BRIGHT_RED,
-        )
-        raise typer.Exit(1)
-
-
-def check_github_url(github_url):
-    allowed_hosts = {"github.com", "wwwin-github.cisco.com"}
-    parsed = re.match(r"https?://([^/]+)(/.*)?", github_url)
-    if not parsed or parsed.group(1) not in allowed_hosts:
-        typer.secho(
-            f"GitHub URL '{github_url}' is invalid in the local config.\n"
-            f"Must start with {'or '.join([h for h in allowed_hosts])}",
-            fg=typer.colors.BRIGHT_RED,
-        )
-        raise typer.Exit(1)
-
-
-def is_metadata_update_valid(config, server_data) -> None:
+def get_metadata_diff(config, server_data) -> None:
     local_metadata = config.get("application", {})
-    check_description(local_metadata.get("description"))
-    check_lead_developer_valid(local_metadata.get("lead_developer_email"))
-    check_name_change(local_metadata.get("display_name"), server_data.get("name"))
-    check_version_bump(
-        server_data.get("lastSuccessfulDeploymentId"),
-        server_data.get("lastSuccessfulDeployment"),
-        str(local_metadata.get("app_version", ""))
-    )
-    check_github_url(local_metadata.get("github_url"))
     server_metadata = replace_server_metadata_keys(server_data, local_metadata.keys())
     diff_metadata = {
         k: v
@@ -375,40 +294,44 @@ def deploy(
         )
         raise typer.Exit(1)
 
-    api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path)
+    iam_api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path)
+    lifecycle_api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
 
     # Check if application exists in IAM
-    iam_response = api.get(
+    iam_response = iam_api.get(
         f"/cxp-iam/api/v1/applications/{app_id}",
         headers={"Content-Type": "application/json"},
     )
 
     if iam_response.status_code == 200:
         # Application exists in IAM, now check if it exists in Developer Studio
-        ds_response = api.get(
-            f"/lifecycle/api/v1/deployment/applications/{app_id}",
+        ds_response = lifecycle_api.get(
+            f"/deployments/validate/{app_id}",
             headers={"Content-Type": "application/json"},
         )
-
-        # If application doesn't exist in Developer Studio (404), create it
-        if ds_response.status_code == 404:
+        if ds_response.status_code == 200:
+            get_metadata_diff(config, ds_response.json())
+        elif ds_response.status_code == 404:
+            # If application doesn't exist in Developer Studio (404), create it
             # Get application details from IAM response
             iam_app_details = iam_response.json()
 
             try:
-                create_application_in_developer_studio(api, iam_app_details)
+                create_application_in_developer_studio(lifecycle_api, iam_app_details)
             except Exception as e:
                 typer.secho(
                     f"Failed to create application in Developer Studio: {str(e)}",
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-
-        # Application exists in Developer Studio, validate metadata updates
-        else:
+        elif ds_response.status_code == 500:
             typer.secho(
-                "Application exists in Developer Studio, validating local metadata", fg=typer.colors.BRIGHT_BLUE,)
-            is_metadata_update_valid(config, ds_response.json())
+                "Error validating application in Developer Studio",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            raise typer.Exit(1)
     else:
         typer.secho(
             f"Application with ID {app_id} not found in IAM. Please register the application first.",
@@ -416,10 +339,7 @@ def deploy(
         )
         raise typer.Exit(1)
 
-    api = APIClient(
-        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
-    )
-    response = api.get(
+    response = lifecycle_api.get(
         f"/status/application/{app_id}/inProgress",
         headers={"Content-Type": "application/json"},
     )
@@ -462,7 +382,7 @@ def deploy(
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
     )
-    response = api.post(
+    response = lifecycle_api.post(
         "/msk/deploy", json=payload, headers={"Content-Type": "application/json"}
     )
     if response.status_code != 200:
