@@ -344,7 +344,7 @@ def deploy(
                 fg=typer.colors.BRIGHT_RED,
             )
             response_json = json.loads(ds_response.text)
-            errors = response_json.get("detail", {}).get("errors", [])
+            errors = response_json.get("errors", [])
             if errors:
                 typer.secho("Validation errors:", fg=typer.colors.BRIGHT_RED)
                 for error in errors:
