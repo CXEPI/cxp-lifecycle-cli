@@ -304,16 +304,28 @@ def deploy(
         f"/cxp-iam/api/v1/applications/{app_id}",
         headers={"Content-Type": "application/json"},
     )
-
+    deployment_id = uuid.uuid4()
+    payload = {
+        "deployment_id": str(deployment_id),
+        "services": {},
+        "app_id": app_id,
+        "app_version": app_version,
+        "description": config.get("application", {}).get("description"),
+        "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
+        "github_url": config.get("application", {}).get("github_url"),
+        "app_name": config.get("application", {}).get("display_name"),
+    }
     if iam_response.status_code == 200:
         # Application exists in IAM, now check if it exists in Developer Studio
-        ds_response = lifecycle_api.get(
+        ds_response = lifecycle_api.post(
             f"/deployments/validate/{app_id}",
+            json=payload,
             headers={"Content-Type": "application/json"},
         )
-        if ds_response.status_code == 200:
+        ds_status_code = ds_response.status_code
+        if ds_status_code == 200:
             get_metadata_diff(config, ds_response.json())
-        elif ds_response.status_code == 404:
+        elif ds_status_code == 404:
             # If application doesn't exist in Developer Studio (404), create it
             # Get application details from IAM response
             iam_app_details = iam_response.json()
@@ -326,9 +338,9 @@ def deploy(
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
-        elif ds_response.status_code == 500:
+        else:
             typer.secho(
-                "Error validating application in Developer Studio",
+                f"Error validating application in Developer Studio ({ds_status_code})",
                 fg=typer.colors.BRIGHT_RED,
             )
             raise typer.Exit(1)
@@ -360,7 +372,6 @@ def deploy(
             )
             raise typer.Exit(1)
 
-    deployment_id = uuid.uuid4()
     typer.secho(
         f"Deploying application with deployment ID: {deployment_id}",
         fg=typer.colors.BRIGHT_BLUE,
@@ -369,16 +380,7 @@ def deploy(
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
-    payload = {
-        "deployment_id": str(deployment_id),
-        "services": services_payload,
-        "app_id": app_id,
-        "app_version": app_version,
-        "description": config.get("application", {}).get("description"),
-        "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
-        "github_url": config.get("application", {}).get("github_url"),
-        "app_name": config.get("application", {}).get("display_name"),
-    }
+    payload.update({"services": services_payload})
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
     )
