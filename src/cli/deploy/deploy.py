@@ -339,11 +339,12 @@ def deploy(
                 )
                 raise typer.Exit(1)
         else:
+            response_json = json.loads(ds_response.text)
+            detail = response_json.get("detail", "No detail provided.")
             typer.secho(
-                f"Error validating application in Developer Studio ({ds_status_code})",
+                f"Error validating application in Developer Studio: {detail}",
                 fg=typer.colors.BRIGHT_RED,
             )
-            response_json = json.loads(ds_response.text)
             errors = response_json.get("errors", [])
             if errors:
                 typer.secho("Validation errors:", fg=typer.colors.BRIGHT_RED)
