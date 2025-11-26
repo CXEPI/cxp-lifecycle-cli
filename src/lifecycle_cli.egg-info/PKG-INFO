@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lifecycle-cli
-Version: 0.2.5
+Version: 0.2.6
 Summary: CLI tool for managing lifecycle operations
 Author-email: ronilefkowitz <rlefkowi@cisco.com>
 Keywords: cli,lifecycle,operations,deployment
@@ -97,6 +97,31 @@ uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cl
 
 # Using pip
 pip install --upgrade git+https://github.com/CXEPI/cxp-lifecycle-cli
+```
+
+## 🪟 Windows Support
+
+The CLI now fully supports Windows! All features work cross-platform including file operations, path handling, and cloud deployments.
+
+### Upgrading from Previous Versions (Windows Users)
+
+If you installed the CLI before Windows support was added, you'll need to perform a clean reinstall to get the fixes:
+
+```bash
+# 1. Uninstall the old version
+uv tool uninstall lifecycle-cli
+
+# 2. Clear the UV cache
+uv cache clean
+
+# 3. Reinstall with no cache
+uv tool install --force --no-cache git+https://github.com/CXEPI/cxp-lifecycle-cli
+```
+
+After reinstalling, verify the installation:
+```bash
+cx-cli --help
+cx-cli version
 ```
 
 ## ⚙️ Configuration
