@@ -1,5 +1,6 @@
 from cli.config import CONFIG_FILE
 import uuid
+import re
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,7 +26,11 @@ from cli.helpers.path_utils import (
 from cli.register.register import create_application_in_developer_studio
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
-
+METADATA_MAPPING = {  # keys are server keys, values are local config keys
+        "description": "description",
+        "leadDeveloper": "lead_developer_email",
+        "gitRepository": "github_url",
+    }
 
 def upload_services_config_to_s3(
     deployment_id, app_id, env: str, creds_path: str = None, deploy_all: bool = False
@@ -230,6 +235,31 @@ def upload_services_config_to_s3(
     return services_payload, services_to_deploy
 
 
+def replace_server_metadata_keys(server_response, local_metadata_keys) -> dict:
+    """This function replaces server metadata keys to match local metadata keys if they differ in naming conventions."""
+    updated_metadata = {}
+    for server_key, local_key in METADATA_MAPPING.items():
+        if local_key in local_metadata_keys and server_key in server_response:
+            updated_metadata[local_key] = server_response[server_key]
+
+    return updated_metadata
+
+
+def get_metadata_diff(config, server_data) -> None:
+    local_metadata = config.get("application", {})
+    server_metadata = replace_server_metadata_keys(server_data, local_metadata.keys())
+    diff_metadata = {
+        k: v
+        for k, v in local_metadata.items()
+        if k in server_metadata and server_metadata[k] != v
+    }
+
+    if diff_metadata:
+        diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
+        typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
+        typer.secho("Application metadata will be updated accordingly.", fg=typer.colors.BRIGHT_GREEN)
+
+
 @deploy_commands_app.command("run")
 def deploy(
     env: str = typer.Argument("dev"),
@@ -256,6 +286,7 @@ def deploy(
     config = load_config()
     app_id = config.get("application", {}).get("application_uid", {})
     app_version = str(config.get("application", {}).get("app_version", {}))
+
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
@@ -263,39 +294,71 @@ def deploy(
         )
         raise typer.Exit(1)
 
-    api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path)
+    iam_api = APIClient(base_url=BASE_URL_BY_ENV[env], env=env, creds_path=creds_path)
+    lifecycle_api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
 
     # Check if application exists in IAM
-    iam_response = api.get(
+    iam_response = iam_api.get(
         f"/cxp-iam/api/v1/applications/{app_id}",
         headers={"Content-Type": "application/json"},
     )
-
+    deployment_id = uuid.uuid4()
+    payload = {
+        "deployment_id": str(deployment_id),
+        "services": {"data_fabric": {"configuration_file_path": "key_prefix"}},  # Placeholder, will be replaced later
+        "app_id": app_id,
+        "app_version": app_version,
+        "description": config.get("application", {}).get("description"),
+        "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
+        "github_url": config.get("application", {}).get("github_url"),
+        "app_name": config.get("application", {}).get("display_name"),
+    }
     if iam_response.status_code == 200:
         # Application exists in IAM, now check if it exists in Developer Studio
-        ds_response = api.get(
-            f"/lifecycle/api/v1/deployment/applications/{app_id}",
+        ds_response = lifecycle_api.post(
+            f"/deployments/validate/{app_id}",
+            json=payload,
             headers={"Content-Type": "application/json"},
         )
-
-        # If application doesn't exist in Developer Studio (404), create it
-        if ds_response.status_code == 404:
+        ds_status_code = ds_response.status_code
+        if ds_status_code == 200:
+            get_metadata_diff(config, ds_response.json())
+        elif ds_status_code == 404:
+            # If application doesn't exist in Developer Studio (404), create it
             # Get application details from IAM response
             iam_app_details = iam_response.json()
 
             try:
-                create_application_in_developer_studio(api, iam_app_details)
+                create_application_in_developer_studio(lifecycle_api, iam_app_details)
             except Exception as e:
                 typer.secho(
                     f"Failed to create application in Developer Studio: {str(e)}",
                     fg=typer.colors.BRIGHT_RED,
                 )
                 raise typer.Exit(1)
+        else:
+            response_json = json.loads(ds_response.text)
+            detail = response_json.get("detail", "No detail provided.")
+            typer.secho(
+                f"Error validating application in Developer Studio: {detail}",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            errors = response_json.get("errors", [])
+            if errors:
+                typer.secho("Validation errors in lifecycle_config.yaml:", fg=typer.colors.BRIGHT_RED)
+                for error in errors:
+                    typer.secho(f"  • {error}", fg=typer.colors.RED)
+            raise typer.Exit(1)
+    else:
+        typer.secho(
+            f"Application with ID {app_id} not found in IAM. Please register the application first.",
+            fg=typer.colors.BRIGHT_RED,
+        )
+        raise typer.Exit(1)
 
-    api = APIClient(
-        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
-    )
-    response = api.get(
+    response = lifecycle_api.get(
         f"/status/application/{app_id}/inProgress",
         headers={"Content-Type": "application/json"},
     )
@@ -316,7 +379,6 @@ def deploy(
             )
             raise typer.Exit(1)
 
-    deployment_id = uuid.uuid4()
     typer.secho(
         f"Deploying application with deployment ID: {deployment_id}",
         fg=typer.colors.BRIGHT_BLUE,
@@ -325,16 +387,11 @@ def deploy(
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
-    payload = {
-        "deployment_id": str(deployment_id),
-        "services": services_payload,
-        "app_id": app_id,
-        "app_version": app_version,
-    }
+    payload["services"] = services_payload
     typer.secho(
         f"Deploying services: {', '.join(services)}", fg=typer.colors.BRIGHT_YELLOW
     )
-    response = api.post(
+    response = lifecycle_api.post(
         "/msk/deploy", json=payload, headers={"Content-Type": "application/json"}
     )
     if response.status_code != 200:
