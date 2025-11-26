@@ -72,6 +72,7 @@ def upgrade(
         "-y",
         help="Skip confirmation prompt",
     ),
+    force: bool = typer.Option(False, "--force", "-f", help="Force upgrade even if already up-to-date")
 ):
     """Upgrade cx-cli to the latest version."""
     if not version_manager.is_up_to_date():
@@ -79,7 +80,7 @@ def upgrade(
             f"Current version: {version_manager.installed_version}\n"
             f"Latest version: {version_manager.latest_version}"
         )
-    else:
+    elif not force:
         typer.echo(
             f"✅ Already running the latest version: {version_manager.installed_version}"
         )
