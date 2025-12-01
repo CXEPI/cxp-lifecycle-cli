@@ -263,7 +263,9 @@ def validate(
         "app_id": app_id,
         "app_version": app_version,
         "description": config.get("application", {}).get("description"),
-        "lead_developer_email": config.get("application", {}).get("lead_developer_email"),
+        "lead_developer_email": config.get("application", {}).get(
+            "lead_developer_email"
+        ),
         "github_url": config.get("application", {}).get("github_url"),
         "app_name": config.get("application", {}).get("display_name"),
     }
