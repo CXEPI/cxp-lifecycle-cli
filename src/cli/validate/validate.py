@@ -238,6 +238,7 @@ def validate(
     config = load_config()
     app_id = config.get("application", {}).get("application_uid")
     app_version = str(config.get("application", {}).get("app_version", {}))
+
     if not app_id:
         typer.secho(
             "Application ID not found in config. Please run 'register' command first.",
@@ -260,6 +261,12 @@ def validate(
         "services": services_payload,
         "app_id": app_id,
         "app_version": app_version,
+        "description": config.get("application", {}).get("description"),
+        "lead_developer_email": config.get("application", {}).get(
+            "lead_developer_email"
+        ),
+        "github_url": config.get("application", {}).get("github_url"),
+        "app_name": config.get("application", {}).get("display_name"),
     }
 
     typer.secho(
