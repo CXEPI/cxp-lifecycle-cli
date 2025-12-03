@@ -112,6 +112,9 @@ def upload_services_config_to_s3(
 
             for root, _, files in os.walk(folder_path):
                 for file in files:
+                    # Skip files with .example in the name
+                    if ".example" in file:
+                        continue
                     full_path = os.path.join(root, file)
                     if os.path.isfile(full_path):
                         relative_path = os.path.relpath(full_path, folder_path)
