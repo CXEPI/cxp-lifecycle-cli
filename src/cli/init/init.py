@@ -196,6 +196,12 @@ def init():
             f"✅ Created folders for services: {', '.join(core_services)}",
             fg=typer.colors.GREEN,
         )
+        typer.secho(
+            f"❕Please note that files ending with “.example” are not uploaded during the deploy command,\n"
+            f"as they are provided as example files for your convenience.\n"
+            f"Please create new files in the relevant folders or rename the example files after making your changes.",
+            fg=typer.colors.YELLOW,
+        )
     else:
         typer.secho(
             "No core services selected, so no folders created.", fg=typer.colors.RED

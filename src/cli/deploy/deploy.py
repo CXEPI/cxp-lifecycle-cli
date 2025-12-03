@@ -387,6 +387,12 @@ def deploy(
         fg=typer.colors.BRIGHT_BLUE,
     )
 
+    typer.secho(
+        f"❕Please note that files ending with “.example” are not uploaded during the deploy command,\n"
+        f"as they are treated as example files.\n",
+        fg=typer.colors.YELLOW,
+    )
+
     services_payload, services = upload_services_config_to_s3(
         deployment_id, app_id, env, creds_path=creds_path, deploy_all=deploy_all
     )
