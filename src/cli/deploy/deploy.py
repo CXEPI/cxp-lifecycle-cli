@@ -112,6 +112,9 @@ def upload_services_config_to_s3(
 
             for root, _, files in os.walk(folder_path):
                 for file in files:
+                    # Skip files with .example in the name
+                    if ".example" in file:
+                        continue
                     full_path = os.path.join(root, file)
                     if os.path.isfile(full_path):
                         relative_path = os.path.relpath(full_path, folder_path)
@@ -382,6 +385,12 @@ def deploy(
     typer.secho(
         f"Deploying application with deployment ID: {deployment_id}",
         fg=typer.colors.BRIGHT_BLUE,
+    )
+
+    typer.secho(
+        f"❕Please note that files ending with “.example” are not uploaded during the deploy command,\n"
+        f"as they are treated as example files.\n",
+        fg=typer.colors.YELLOW,
     )
 
     services_payload, services = upload_services_config_to_s3(
