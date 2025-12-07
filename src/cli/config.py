@@ -40,4 +40,3 @@ def get_deployment_base_url(env: str) -> str:
         )
 
     return f"{BASE_URL_BY_ENV[env]}/lifecycle/api/v1/deployment"
-
