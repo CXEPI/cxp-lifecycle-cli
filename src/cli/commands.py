@@ -3,6 +3,7 @@ from cli.helpers.custom_typer import find_and_add_typer_apps
 from cli.init.init import init
 from cli.register.register import register
 from cli.cancel.cancel import cancel
+from cli.dry_run.dry_run import dry_run
 from cli.validate.validate import validate
 from cli.helpers.cache_manager import (
     VersionManager,
@@ -156,6 +157,7 @@ def config_list():
 app.command()(init)
 app.command()(register)
 app.command()(cancel)
+app.command(name="dry-run")(dry_run)
 app.command()(validate)
 
 find_and_add_typer_apps(app)
