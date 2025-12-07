@@ -213,16 +213,13 @@ def list_deployments_history(
         raise typer.Exit(1)
     data = resp.json()
 
+    items = data.get("items", [])
+    total = data.get("total", len(items))
+    typer.secho(f"Deployment history for application {app_id} (total {total}):", fg=typer.colors.BRIGHT_BLUE)
+
     if json_output:
         typer.echo(json.dumps(data, indent=2))
         return
-
-    items = data.get("items", [])
-    total = data.get("total", len(items))
-    typer.secho(
-        f"Deployment history for application {app_id} (total {total}):",
-        fg=typer.colors.BRIGHT_BLUE,
-    )
 
     rows = []
     for d in items:
