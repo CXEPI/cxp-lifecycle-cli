@@ -13,7 +13,6 @@ deployments_app = typer.Typer(help="Get deployment details and history.")
 
 
 def _colorize_status(status: Optional[str]) -> str:
-    # Color mapping consistent with applications list
     if not status:
         return "-"
     raw = str(status)
@@ -28,9 +27,6 @@ def _colorize_status(status: Optional[str]) -> str:
         return typer.style(raw, fg=typer.colors.YELLOW)
     if s == "deployment canceled":
         return typer.style(raw, fg=typer.colors.MAGENTA)
-    # Registered/Regular seen in history for some flows
-    if s in {"registered", "regular"}:
-        return typer.style(raw, fg=typer.colors.YELLOW, bold=True if s == "registered" else False)
     return raw
 
 
