@@ -62,7 +62,6 @@ def _print_deployment_details(data: dict) -> None:
     typer.echo(f"Deployment Time: {dep_time}")
     typer.echo(f"Deployment Complete Time: {dep_complete_time}")
 
-    # Print requested core services if present
     rcs = data.get("requestedCoreServices") or {}
     if isinstance(rcs, dict) and rcs:
         typer.echo("")
@@ -70,7 +69,6 @@ def _print_deployment_details(data: dict) -> None:
         for service_name, svc in rcs.items():
             typer.secho(f"- {service_name}", fg=typer.colors.BRIGHT_WHITE)
             if isinstance(svc, dict):
-                # Known fields
                 ds = svc.get("deployment_status")
                 cfp = svc.get("configuration_file_path")
                 fr = svc.get("failure_reason")
@@ -86,7 +84,6 @@ def _print_deployment_details(data: dict) -> None:
                 if topics is not None:
                     typer.echo(f"    Num of Topics: {topics}")
                 if topic_statuses is not None:
-                    # Print mapping or empty
                     if isinstance(topic_statuses, dict) and topic_statuses:
                         typer.echo("    Topic Statuses:")
                         for tname, tstat in topic_statuses.items():
@@ -195,7 +192,6 @@ def list_deployments_history(
     total = data.get("total", len(items))
     typer.secho(f"Deployment history for application {app_id} (total {total}):", fg=typer.colors.BRIGHT_BLUE)
 
-    # Build rows from correct fields
     rows = []
     for d in items:
         dep_id = d.get("deploymentId") or d.get("deployment_id") or d.get("id") or "-"
@@ -224,7 +220,6 @@ def list_deployments_history(
         for i, cell in enumerate(row):
             col_widths[i] = max(col_widths[i], len(str(cell)))
 
-    # extra blank line above the table
     typer.echo("")
 
     header_line = "   ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers))
