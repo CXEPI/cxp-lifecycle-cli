@@ -5,7 +5,7 @@ from cli.helpers.api_client import APIClient
 from cli.config import get_deployment_base_url
 from cli.helpers.errors import handle_env_error
 
-applications_app = typer.Typer(help="List applications on your account")
+applications_app = typer.Typer(help="List applications on your account.")
 
 
 def _format_nullable(value):
