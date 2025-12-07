@@ -42,8 +42,15 @@ def _pad_styled(raw_text: str, width: int, styled_text: str) -> str:
 def _print_applications_table(items: list[dict]) -> None:
     rows = []
     for app in items:
-        name = app.get("name") or app.get("displayName") or app.get("display_name") or "-"
-        app_id = app.get("id") or app.get("application_uid") or app.get("applicationId") or "-"
+        name = (
+            app.get("name") or app.get("displayName") or app.get("display_name") or "-"
+        )
+        app_id = (
+            app.get("id")
+            or app.get("application_uid")
+            or app.get("applicationId")
+            or "-"
+        )
         status = app.get("activeStatus") or app.get("status")
         version = app.get("activeVersion") or app.get("version")
         lead = app.get("leadDeveloper") or app.get("leadDeveloperEmail")
@@ -89,7 +96,9 @@ def _print_applications_table(items: list[dict]) -> None:
         lead_cell = str(row[4]).ljust(col_widths[4])
         last_cell = str(row[5]).ljust(col_widths[5])
 
-        line = "  ".join([name_cell, id_cell, status_cell, version_cell, lead_cell, last_cell])
+        line = "  ".join(
+            [name_cell, id_cell, status_cell, version_cell, lead_cell, last_cell]
+        )
         typer.echo(line)
 
     typer.echo("")
@@ -106,11 +115,16 @@ def list_applications(
 ):
     """List all applications registered in your account."""
     handle_env_error(env)
-    api = APIClient(base_url=get_deployment_base_url(env), env=env, creds_path=creds_path)
+    api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
 
     resp = api.get("/cli/applications")
     if resp.status_code != 200:
-        typer.secho(f"Failed to fetch applications: {resp.status_code} {resp.text}", fg=typer.colors.RED)
+        typer.secho(
+            f"Failed to fetch applications: {resp.status_code} {resp.text}",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(1)
     data = resp.json()
 

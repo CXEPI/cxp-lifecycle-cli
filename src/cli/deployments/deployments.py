@@ -52,7 +52,9 @@ def _print_deployment_details(data: dict) -> None:
     version = data.get("version", "-")
     deployed_by = data.get("deployedBy", "-")
     dep_time = data.get("deploymentTime") or data.get("createdAt") or "-"
-    dep_complete_time = data.get("deploymentCompleteTime") or data.get("updatedAt") or "-"
+    dep_complete_time = (
+        data.get("deploymentCompleteTime") or data.get("updatedAt") or "-"
+    )
 
     typer.echo(f"Deployment ID: {dep_id}")
     typer.echo(f"Application ID: {app_id}")
@@ -117,12 +119,17 @@ def get_deployment(
         deployment_id = None
 
     handle_env_error(env)
-    api = APIClient(base_url=get_deployment_base_url(env), env=env, creds_path=creds_path)
+    api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
 
     if deployment_id:
         resp = api.get(f"/cli/deployments/{deployment_id}")
         if resp.status_code != 200:
-            typer.secho(f"Failed to fetch deployment: {resp.status_code} {resp.text}", fg=typer.colors.RED)
+            typer.secho(
+                f"Failed to fetch deployment: {resp.status_code} {resp.text}",
+                fg=typer.colors.RED,
+            )
             raise typer.Exit(1)
         data = resp.json()
         if json_output:
@@ -133,17 +140,27 @@ def get_deployment(
         return
 
     cfg = load_config()
-    app_id = cfg.get("application", {}).get("application_uid") or cfg.get("application", {}).get("id")
+    app_id = cfg.get("application", {}).get("application_uid") or cfg.get(
+        "application", {}
+    ).get("id")
     if not app_id:
-        typer.secho("Application ID not found in lifecycle_config.yaml", fg=typer.colors.RED)
+        typer.secho(
+            "Application ID not found in lifecycle_config.yaml", fg=typer.colors.RED
+        )
         raise typer.Exit(1)
 
     current_resp = api.get(f"/cli/deployments/current/{app_id}")
     if current_resp.status_code == 404:
-        typer.secho("No successful deployments found for this application.", fg=typer.colors.YELLOW)
+        typer.secho(
+            "No successful deployments found for this application.",
+            fg=typer.colors.YELLOW,
+        )
         raise typer.Exit(0)
     if current_resp.status_code != 200:
-        typer.secho(f"Failed to fetch current deployment: {current_resp.status_code} {current_resp.text}", fg=typer.colors.RED)
+        typer.secho(
+            f"Failed to fetch current deployment: {current_resp.status_code} {current_resp.text}",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(1)
 
     data = current_resp.json()
@@ -173,14 +190,26 @@ def list_deployments_history(
         app_id = None
 
     handle_env_error(env)
-    app_id = app_id or load_config().get("application", {}).get("application_uid") or load_config().get("application", {}).get("id")
+    app_id = (
+        app_id
+        or load_config().get("application", {}).get("application_uid")
+        or load_config().get("application", {}).get("id")
+    )
     if not app_id:
-        typer.secho("Application ID not provided and not found in local lifecycle_config.yaml", fg=typer.colors.RED)
+        typer.secho(
+            "Application ID not provided and not found in local lifecycle_config.yaml",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(1)
-    api = APIClient(base_url=get_deployment_base_url(env), env=env, creds_path=creds_path)
+    api = APIClient(
+        base_url=get_deployment_base_url(env), env=env, creds_path=creds_path
+    )
     resp = api.get(f"/cli/deployments/history/{app_id}")
     if resp.status_code != 200:
-        typer.secho(f"Failed to fetch deployments: {resp.status_code} {resp.text}", fg=typer.colors.RED)
+        typer.secho(
+            f"Failed to fetch deployments: {resp.status_code} {resp.text}",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(1)
     data = resp.json()
 
@@ -190,7 +219,10 @@ def list_deployments_history(
 
     items = data.get("items", [])
     total = data.get("total", len(items))
-    typer.secho(f"Deployment history for application {app_id} (total {total}):", fg=typer.colors.BRIGHT_BLUE)
+    typer.secho(
+        f"Deployment history for application {app_id} (total {total}):",
+        fg=typer.colors.BRIGHT_BLUE,
+    )
 
     rows = []
     for d in items:
@@ -198,14 +230,21 @@ def list_deployments_history(
         status = d.get("status") or d.get("state")
         version = d.get("version") or d.get("appVersion") or d.get("applicationVersion")
         deployed_by = d.get("deployedBy") or d.get("deployed_by") or d.get("actor")
-        deployed_time = d.get("deploymentTime") or d.get("deployment_time") or d.get("createdAt") or d.get("created_at")
-        rows.append([
-            str(dep_id),
-            _format_nullable(status),
-            _format_nullable(version),
-            _format_nullable(deployed_by),
-            _format_nullable(deployed_time),
-        ])
+        deployed_time = (
+            d.get("deploymentTime")
+            or d.get("deployment_time")
+            or d.get("createdAt")
+            or d.get("created_at")
+        )
+        rows.append(
+            [
+                str(dep_id),
+                _format_nullable(status),
+                _format_nullable(version),
+                _format_nullable(deployed_by),
+                _format_nullable(deployed_time),
+            ]
+        )
 
     headers = [
         "Deployment ID",
@@ -235,6 +274,8 @@ def list_deployments_history(
         version_cell = str(row[2]).ljust(col_widths[2])
         by_cell = str(row[3]).ljust(col_widths[3])
         time_cell = str(row[4]).ljust(col_widths[4])
-        typer.echo("   ".join([dep_cell, status_cell, version_cell, by_cell, time_cell]))
+        typer.echo(
+            "   ".join([dep_cell, status_cell, version_cell, by_cell, time_cell])
+        )
 
     typer.echo("")
