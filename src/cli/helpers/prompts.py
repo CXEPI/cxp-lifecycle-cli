@@ -1,4 +1,5 @@
 from typing import Callable
+from questionary import Style
 import questionary
 import typer
 import re
@@ -97,3 +98,37 @@ def prompt_application(schema: dict) -> dict:
         field_format = value.get("format", None)
         result[key] = prompt_string(key, description, field_format)
     return result
+
+
+def prompt_service_selection(
+    services: list[str],
+    prompt_text: str = "Select services:",
+    all_selected: bool = True,
+) -> list[str] | None:
+    """
+    Display a checkbox prompt for selecting services.
+    """
+
+    if not services:
+        return []
+
+    choices = [
+        questionary.Choice(service, checked=all_selected) for service in services
+    ]
+
+    custom_style = Style(
+        [
+            ("checkbox-selected", "fg:#00aa00 bold"),  # Green checkmark
+            ("checkbox", "fg:#ffffff"),  # White for unselected
+            ("selected", "bg: fg:"),  # Transparent background
+            ("pointer", "fg:#00aa00 bold"),  # Green pointer
+            ("highlighted", "fg:#00aa00 bg:"),  # Green text, transparent background
+            ("answer", "fg:#00aa00 bold"),  # Green for final answer
+        ]
+    )
+
+    selected_services = questionary.checkbox(
+        prompt_text, choices=choices, style=custom_style
+    ).ask()
+
+    return selected_services
