@@ -106,7 +106,7 @@ def upgrade(
         raise typer.Exit(1)
 
 
-config_app = typer.Typer(help="Manage CLI configuration")
+config_app = typer.Typer(help="Manage CLI configuration.")
 app.add_typer(config_app, name="config")
 
 
