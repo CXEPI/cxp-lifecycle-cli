@@ -392,7 +392,7 @@ def deploy(
     )
 
     typer.secho(
-        f"❕Please note that files ending with “.example” are not uploaded during the deploy command,\n"
+        f"❕ Please note that files ending with “.example” are not uploaded during the deploy command,\n"
         f"as they are treated as example files.\n",
         fg=typer.colors.YELLOW,
     )
