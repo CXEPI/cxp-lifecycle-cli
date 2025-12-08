@@ -1,11 +1,11 @@
 import json
+from typing import List
 
 import typer
-from pathlib import Path
 
 import yaml
 from cli.helpers.api_client import APIClient
-from cli.helpers.file import save_config
+from cli.helpers.file import save_config, load_config
 from cli.helpers.prompts import prompt_application, prompt_core_services
 from cli.helpers.path_utils import get_lifecycle_path, to_posix_path
 
@@ -57,12 +57,20 @@ def fetch_schema(api, schema_name):
     return response.json()
 
 
-def _create_data_fabric_service_folder(service_path, service, api):
+def _create_data_fabric_service_folder(service_path, service, api, update_only: bool = False) -> List[str]:
     """
     Creates the folder structure for the data_fabric service.
     """
-    with open(service_path / "commands.txt", "w", encoding="utf-8") as schema_file:
-        schema_file.write("#Create Connector connectors/connectors.example.json")
+    updated_files = []
+
+    # Only create commands.txt on initial creation, not on update
+    if not update_only:
+        commands_path = service_path / "commands.txt"
+        with open(commands_path, "w", encoding="utf-8") as schema_file:
+            schema_file.write("#Create Connector connectors/connectors.example.json")
+        updated_files.append(str(commands_path))
+        typer.secho(f"   ✔ {commands_path}", fg=typer.colors.BRIGHT_WHITE)
+
     folders = [
         "connectors",
         "etl_instances",
@@ -93,6 +101,9 @@ def _create_data_fabric_service_folder(service_path, service, api):
 
         with open(json_schema_path, "w", encoding="utf-8") as schema_file:
             schema_file.write(json.dumps(json_schema, indent=2))
+        updated_files.append(str(json_schema_path))
+        typer.secho(f"   ✔ {json_schema_path}", fg=typer.colors.BRIGHT_WHITE)
+
         with open(example_instance_path, "w", encoding="utf-8") as example_file:
             if folder in ["etl_templates", "etl_instances"]:
                 if isinstance(example_instance, str):
@@ -101,6 +112,8 @@ def _create_data_fabric_service_folder(service_path, service, api):
                     yaml.dump(example_instance, example_file, sort_keys=False)
             else:
                 example_file.write(json.dumps(example_instance, indent=2))
+        updated_files.append(str(example_instance_path))
+        typer.secho(f"   ✔ {example_instance_path}", fg=typer.colors.BRIGHT_WHITE)
 
         if folder == "data_models/sample":
             sub_folders = ["entity", "relationship", "type"]
@@ -120,55 +133,185 @@ def _create_data_fabric_service_folder(service_path, service, api):
 
                 with open(json_schema_path, "w", encoding="utf-8") as schema_file:
                     schema_file.write(json.dumps(json_schema, indent=2))
+                updated_files.append(str(json_schema_path))
+                typer.secho(f"   ✔ {json_schema_path}", fg=typer.colors.BRIGHT_WHITE)
+
                 with open(example_instance_path, "w", encoding="utf-8") as example_file:
                     example_file.write(json.dumps(example_instance, indent=2))
+                updated_files.append(str(example_instance_path))
+                typer.secho(f"   ✔ {example_instance_path}", fg=typer.colors.BRIGHT_WHITE)
+
+    return updated_files
 
 
-def _create_simple_service_folder(service_path, service, api):
+def _create_simple_service_folder(service_path, service, api) -> List[str]:
     """
     Creates a folder for a simple service with a single schema file.
     """
+    updated_files = []
     schema_response = fetch_schema(api, service)
     if not schema_response:
-        return
+        return updated_files
 
-    json_schema_path = service_path  / f"{service}_json_schema.example.json"
-    example_instance_path = service_path  / f"{service}_example.example.json"
+    json_schema_path = service_path / f"{service}_json_schema.example.json"
+    example_instance_path = service_path / f"{service}_example.example.json"
 
     json_schema = schema_response.get("jsonSchema", {})
     example_instance = schema_response.get("exampleInstance", {})
 
     with open(json_schema_path, "w", encoding="utf-8") as schema_file:
         schema_file.write(json.dumps(json_schema, indent=2))
+    updated_files.append(str(json_schema_path))
+    typer.secho(f"   ✔ {json_schema_path}", fg=typer.colors.BRIGHT_WHITE)
+
     with open(example_instance_path, "w", encoding="utf-8") as example_file:
         example_file.write(json.dumps(example_instance, indent=2))
+    updated_files.append(str(example_instance_path))
+    typer.secho(f"   ✔ {example_instance_path}", fg=typer.colors.BRIGHT_WHITE)
+
+    return updated_files
 
 
-def create_service_folders(lifecycle_path, core_services, api):
+def create_service_folders(lifecycle_path, core_services, api, update_only: bool = False) -> tuple[dict, List[str]]:
     """
     Create folders for core services and fetch additional schemas if required.
     """
+    all_updated_files = []
+
     for service in core_services:
         service_path = lifecycle_path / service
         service_path.mkdir(parents=True, exist_ok=True)
 
-        if service == "data_fabric":
-            _create_data_fabric_service_folder(service_path, service, api)
-        elif service in ["iam", "baqs", "agent"]:
-            _create_simple_service_folder(service_path, service, api)
+        typer.secho(f"\n📁 Processing service: {service}", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
 
-    return {
+        if service == "data_fabric":
+            updated_files = _create_data_fabric_service_folder(service_path, service, api, update_only)
+            all_updated_files.extend(updated_files)
+        elif service in ["iam", "baqs", "agent"]:
+            updated_files = _create_simple_service_folder(service_path, service, api)
+            all_updated_files.extend(updated_files)
+
+    service_paths = {
         service: to_posix_path(
             (lifecycle_path / service).relative_to(lifecycle_path.parent)
         )
         for service in core_services
     }
 
+    return service_paths, all_updated_files
 
-def init():
+
+def update_services():
+    """
+    Update existing services folders with updated example files (*.example.*) and creates new service folders if they don't exist.
+    """
+    lifecycle_path = get_lifecycle_path()
+
+    if not lifecycle_path.exists():
+        typer.secho(
+            "✘ Lifecycle folder not found. Please run 'init' first without --update flag.",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+        raise typer.Exit(1)
+
+    api = APIClient()
+    print("Base URI:", api.base_url)
+    print("Environment: ", api.env)
+
+    schema = fetch_schema(api, "config.json")
+    if schema == {}:
+        raise typer.Exit(1)
+
+    try:
+        config = load_config()
+    except typer.Exit:
+        typer.secho(
+            "✘ Config file not found. Please run 'init' first without --update flag.",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+        raise typer.Exit(1)
+
+    selected_services = prompt_core_services(schema)
+
+    if not selected_services:
+        typer.secho("No services selected.", fg=typer.colors.YELLOW)
+        raise typer.Exit(0)
+
+    existing_services = config.get("core_services", {})
+    updated_services = []
+    new_services = []
+
+    for service in selected_services:
+        service_path = lifecycle_path / service
+        if service_path.exists():
+            updated_services.append(service)
+        else:
+            new_services.append(service)
+
+    # For updated services, use update_only=True to skip non-example files
+    # For new services, create everything
+    all_updated_files = []
+
+    if updated_services:
+        typer.secho(f"\n🔄 Updating existing services: {', '.join(updated_services)}", fg=typer.colors.BRIGHT_YELLOW, bold=True)
+        core_services_dict_updated, updated_files = create_service_folders(
+            lifecycle_path, updated_services, api, update_only=True
+        )
+        existing_services.update(core_services_dict_updated)
+        all_updated_files.extend(updated_files)
+
+    if new_services:
+        typer.secho(f"\n🆕 Creating new services: {', '.join(new_services)}", fg=typer.colors.BRIGHT_YELLOW, bold=True)
+        core_services_dict_new, new_files = create_service_folders(
+            lifecycle_path, new_services, api, update_only=False
+        )
+        existing_services.update(core_services_dict_new)
+        all_updated_files.extend(new_files)
+
+    config["core_services"] = existing_services
+    save_config(config)
+
+    # Summary
+    typer.secho(f"\n{'─' * 50}", fg=typer.colors.BRIGHT_YELLOW)
+    if updated_services:
+        typer.secho(
+            f"✅ Updated example files for services: {', '.join(updated_services)}",
+            fg=typer.colors.BRIGHT_GREEN, bold=True,
+        )
+
+    if new_services:
+        typer.secho(
+            f"✅ Created folders for new services: {', '.join(new_services)}",
+            fg=typer.colors.BRIGHT_GREEN, bold=True,
+        )
+
+    typer.secho(f"📊 Total files created/updated: {len(all_updated_files)}", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
+
+    typer.secho(
+        '\n❕ Please note that files ending with ".example" are not uploaded during the deploy command,\n'
+        "as they are provided as example files for your convenience.\n"
+        "Please create new files in the relevant folders or rename the example files after making your changes.",
+        fg=typer.colors.YELLOW,
+    )
+
+
+def init(
+    update: bool = typer.Option(
+        False,
+        "--update",
+        "-u",
+        help="Update existing services folders with updated example files (*.example.*) and creates new service folders if they don't exist."
+    )
+):
     """
     Initializes and writes app metadata to a YAML config file.
     """
+    if update:
+        update_services()
+        return
+
     lifecycle_path = create_lifecycle_folder()
     create_lifecycle_envs_folder(lifecycle_path)
     api = APIClient()
@@ -181,7 +324,7 @@ def init():
     application = prompt_application(schema)
     core_services = prompt_core_services(schema)
 
-    core_services_dict = create_service_folders(lifecycle_path, core_services, api)
+    core_services_dict, _ = create_service_folders(lifecycle_path, core_services, api, update_only=False)
 
     config = {
         "application": application,
@@ -189,17 +332,17 @@ def init():
     }
 
     save_config(config)
-    typer.secho("✅ Created lifecycle folders and config file", fg=typer.colors.GREEN)
+    typer.secho("✅ Created lifecycle folders and config file", fg=typer.colors.BRIGHT_GREEN, bold=True)
 
     if core_services:
         typer.secho(
             f"✅ Created folders for services: {', '.join(core_services)}",
-            fg=typer.colors.GREEN,
+            fg=typer.colors.BRIGHT_GREEN, bold=True
         )
         typer.secho(
-            f"❕Please note that files ending with “.example” are not uploaded during the deploy command,\n"
-            f"as they are provided as example files for your convenience.\n"
-            f"Please create new files in the relevant folders or rename the example files after making your changes.",
+            '❕Please note that files ending with ".example" are not uploaded during the deploy command,\n'
+            "as they are provided as example files for your convenience.\n"
+            "Please create new files in the relevant folders or rename the example files after making your changes.",
             fg=typer.colors.YELLOW,
         )
     else:

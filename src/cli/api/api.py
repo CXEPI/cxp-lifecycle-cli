@@ -14,7 +14,7 @@ import shutil
 import json
 
 
-api_commands_app = CustomTyper(name="openapi_validator", help="Validate api commands.")
+# api_commands_app = CustomTyper(name="openapi_validator", help="Validate api commands.")
 # api_commands.add_typer(function_commands, name="functions", help="Manage API functions")
 
 
