@@ -48,7 +48,7 @@ def ruleset_path() -> Path:
 
 
 #
-@api_commands_app.command("validate")
+@api_commands_app.command("dry_run")
 def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
     """
     Validates spec file
@@ -56,7 +56,7 @@ def lint_spec(spec: Annotated[Path, typer.Argument()] = None):
     if not spec:
         all_schemas = get_app_schemas()
         selected_schema = questionary.select(
-            "Select OpenAPI schema to validate:", choices=all_schemas
+            "Select OpenAPI schema to dry_run:", choices=all_schemas
         ).ask()
         if selected_schema is None:
             print("No OpenAPI schema selected")

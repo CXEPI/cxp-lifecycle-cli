@@ -1,6 +1,5 @@
 from cli.config import CONFIG_FILE
 import uuid
-import re
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -8,8 +7,6 @@ from datetime import datetime
 
 import requests
 import typer
-import questionary
-from questionary import Style
 from sseclient import SSEClient
 
 from cli.helpers.custom_typer import CustomTyper
@@ -23,6 +20,8 @@ from cli.helpers.path_utils import (
     get_lifecycle_config_path,
     join_s3_path,
 )
+from cli.helpers.prompts import prompt_service_selection
+from cli.helpers.status import get_status_color
 from cli.register.register import create_application_in_developer_studio
 
 deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
@@ -56,29 +55,9 @@ def upload_services_config_to_s3(
                 )
                 return {}, []
 
-            # Create choices with all services selected by default
-            choices = [
-                questionary.Choice(service, checked=True) for service in all_services
-            ]
-
-            # Custom style with transparent background
-            custom_style = Style(
-                [
-                    ("checkbox-selected", "fg:#00aa00 bold"),  # Green checkmark
-                    ("checkbox", "fg:#ffffff"),  # White for unselected
-                    ("selected", "bg: fg:"),  # Transparent background
-                    ("pointer", "fg:#00aa00 bold"),  # Green pointer
-                    (
-                        "highlighted",
-                        "fg:#00aa00 bg:",
-                    ),  # Green text, transparent background
-                    ("answer", "fg:#00aa00 bold"),  # Green for final answer
-                ]
+            selected_services = prompt_service_selection(
+                all_services, "Select services to deploy:"
             )
-
-            selected_services = questionary.checkbox(
-                "Select services to deploy:", choices=choices, style=custom_style
-            ).ask()
 
             if selected_services is None:  # User cancelled
                 typer.secho("Deployment cancelled.", fg=typer.colors.BRIGHT_YELLOW)
@@ -100,6 +79,7 @@ def upload_services_config_to_s3(
 
         # Collect all upload tasks
         upload_tasks = []
+        services_without_files = []
         api = APIClient(
             base_url=get_deployment_base_url(env),
             env=env,
@@ -109,6 +89,7 @@ def upload_services_config_to_s3(
         for service in services_to_deploy:
             folder_path = config["core_services"][service]
             key_prefix = join_s3_path("lifecycle", app_id, str(deployment_id), service)
+            service_has_files = False
 
             for root, _, files in os.walk(folder_path):
                 for file in files:
@@ -117,6 +98,7 @@ def upload_services_config_to_s3(
                         continue
                     full_path = os.path.join(root, file)
                     if os.path.isfile(full_path):
+                        service_has_files = True
                         relative_path = os.path.relpath(full_path, folder_path)
                         # Convert relative_path to POSIX for S3
                         s3_key = join_s3_path(key_prefix, relative_path)
@@ -129,7 +111,29 @@ def upload_services_config_to_s3(
                             }
                         )
 
-            services_payload[service] = {"configuration_file_path": key_prefix}
+            # Only add service to payload if it has files to upload
+            if service_has_files:
+                services_payload[service] = {"configuration_file_path": key_prefix}
+            else:
+                services_without_files.append(service)
+
+        # Warn about services with no files
+        if services_without_files:
+            for service in services_without_files:
+                typer.secho(
+                    f"⚠️  No files detected for '{service}' (only .example files found). Skipping.",
+                    fg=typer.colors.YELLOW,
+                )
+            # Remove services without files from services_to_deploy
+            services_to_deploy = [s for s in services_to_deploy if s not in services_without_files]
+
+        # Check if any services remain
+        if not services_to_deploy:
+            typer.secho(
+                "No services with files to upload. All selected services only contain .example files.",
+                fg=typer.colors.BRIGHT_RED,
+            )
+            raise typer.Exit(1)
 
         # Upload files concurrently
         total_files = len(upload_tasks)
@@ -451,7 +455,10 @@ def get_status(
         )
         headers = api.get_headers()
 
-        for event in SSEClient(stream_url, headers=headers):
+        # Use requests to get a streaming response, then pass to SSEClient
+        response = requests.get(stream_url, headers=headers, stream=True)
+
+        for event in SSEClient(response):
             if not event.data:
                 continue
 
@@ -503,7 +510,7 @@ def get_status(
                 )
 
                 for service, data in services.items():
-                    status_color = _get_status_color(data.get("deployment_status"))
+                    status_color = get_status_color(data.get("deployment_status"))
                     failure_reason = (
                         f" - {data['failure_reason']}"
                         if data.get("failure_reason")
@@ -566,26 +573,9 @@ def _display_deployment_status(deployment_id: str, env: str) -> None:
         return
 
     for service, data in status.items():
-        status_color = _get_status_color(data.get("deployment_status"))
+        status_color = get_status_color(data.get("deployment_status"))
         failure_reason = (
             f" - {data['failure_reason']}" if data.get("failure_reason") else ""
         )
         message = f" {service}: {data['deployment_status']}\n{failure_reason}\n"
         typer.secho(message, fg=status_color)
-
-
-def _get_status_color(status: str) -> str:
-    """Get the appropriate color for a status"""
-    if not status:
-        return typer.colors.BRIGHT_CYAN
-
-    if "Done" in status or "Succeeded" in status:
-        return typer.colors.BRIGHT_GREEN
-    elif "Failed" in status or "REJECTED" in status or "ERROR" in status:
-        return typer.colors.BRIGHT_RED
-    elif "Progress" in status or "Pending" in status or "RECEIVED" in status:
-        return typer.colors.BRIGHT_YELLOW
-    elif "Cancel" in status:
-        return typer.colors.BRIGHT_MAGENTA
-    else:
-        return typer.colors.BRIGHT_CYAN

@@ -20,6 +20,8 @@ src/cli/datafabric/connector.py
 src/cli/datafabric/datafabric.py
 src/cli/deploy/__init__.py
 src/cli/deploy/deploy.py
+src/cli/dry_run/__init__.py
+src/cli/dry_run/dry_run.py
 src/cli/helpers/__init__.py
 src/cli/helpers/api_client.py
 src/cli/helpers/cache_manager.py
@@ -28,6 +30,7 @@ src/cli/helpers/errors.py
 src/cli/helpers/file.py
 src/cli/helpers/path_utils.py
 src/cli/helpers/prompts.py
+src/cli/helpers/status.py
 src/cli/init/__init__.py
 src/cli/init/init.py
 src/cli/register/__init__.py
