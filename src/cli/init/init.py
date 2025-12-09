@@ -326,6 +326,7 @@ def init(
 
     core_services_dict, _ = create_service_folders(lifecycle_path, core_services, api, update_only=False)
 
+    application['display_name'] = application.get("display_name").strip().lower().replace(" ", "-")
     config = {
         "application": application,
         "core_services": core_services_dict,
