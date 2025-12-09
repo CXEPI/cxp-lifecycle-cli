@@ -5,7 +5,7 @@ from cli.helpers.api_client import APIClient
 from cli.config import get_deployment_base_url
 from cli.helpers.errors import handle_env_error
 
-applications_app = typer.Typer(help="List applications on your account.")
+applications_app = typer.Typer(help="View all the applications in your account.")
 
 
 def _format_nullable(value):
@@ -109,11 +109,11 @@ def list_applications(
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to the credentials file. Uses default location if not specified.",
     ),
-    json_output: bool = typer.Option(False, "--json", help="Output raw JSON only"),
+    json_output: bool = typer.Option(False, "--json", help="Display output in raw JSON format"),
 ):
-    """List all applications registered in your account."""
+    """Retrieve and display all applications associated with your account."""
     handle_env_error(env)
     api = APIClient(
         base_url=get_deployment_base_url(env), env=env, creds_path=creds_path

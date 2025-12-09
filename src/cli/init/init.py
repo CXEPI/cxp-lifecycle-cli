@@ -306,7 +306,7 @@ def init(
     )
 ):
     """
-    Initializes and writes app metadata to a YAML config file.
+    Initialize a new application with configuration files and service folders.
     """
     if update:
         update_services()

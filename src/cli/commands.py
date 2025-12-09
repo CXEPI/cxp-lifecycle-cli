@@ -55,7 +55,7 @@ def main(ctx: typer.Context):
 
 @app.command()
 def version():
-    """Show the CLI version."""
+    """Display the current CLI version."""
     typer.echo(f"cx-cli version {version_manager.installed_version}")
 
 
@@ -65,17 +65,17 @@ def upgrade(
         None,
         "--method",
         "-m",
-        help="Installation method to use: 'uv' or 'pip'. Auto-detects if not specified.",
+        help="Specify installation method: 'uv' or 'pip'. Auto-detects if not provided.",
     ),
     yes: bool = typer.Option(
         False,
         "--yes",
         "-y",
-        help="Skip confirmation prompt",
+        help="Proceed without confirmation prompt.",
     ),
-    force: bool = typer.Option(False, "--force", "-f", help="Force upgrade even if already up-to-date")
+    force: bool = typer.Option(False, "--force", "-f", help="Force upgrade even if already on the latest version.")
 ):
-    """Upgrade cx-cli to the latest version."""
+    """Upgrade the cx-cli to the latest version."""
     if not version_manager.is_up_to_date():
         typer.echo(
             f"Current version: {version_manager.installed_version}\n"
@@ -106,7 +106,7 @@ def upgrade(
         raise typer.Exit(1)
 
 
-config_app = typer.Typer(help="Manage CLI configuration.")
+config_app = typer.Typer(help="View and modify CLI configuration.")
 app.add_typer(config_app, name="config")
 
 
@@ -122,8 +122,8 @@ def config_get(key: str = typer.Argument(..., help="Configuration key to retriev
 
 @config_app.command("set")
 def config_set(
-    key: str = typer.Argument(..., help="Configuration key to set"),
-    value: str = typer.Argument(..., help="Value to set"),
+    key: str = typer.Argument(..., help="Configuration key to modify"),
+    value: str = typer.Argument(..., help="The new value to assign."),
 ):
     """Set a configuration value."""
     # Handle boolean values

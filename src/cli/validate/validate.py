@@ -248,17 +248,17 @@ def validate_data_fabric_service(service_path: Path, api: APIClient) -> tuple[in
 def validate(
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to credentials file. Uses default location if not specified.",
     ),
     validate_all: bool = typer.Option(
         False,
         "--all",
         "-a",
-        help="Validate all services without confirmation prompts",
+        help="Validate all services without prompting for selection.",
     ),
 ) -> None:
     """
-    Validate local configuration files against JSON schemas.
+    Check your configuration files against their JSON schemas.
     """
     config = load_config()
     lifecycle_path = get_lifecycle_path()
