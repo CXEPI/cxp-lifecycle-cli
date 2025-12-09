@@ -200,17 +200,17 @@ def dry_run(
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to credentials file. Uses default location if not specified.",
     ),
     validate_all: bool = typer.Option(
         False,
         "--all",
         "-a",
-        help="Run dry-run for all services without confirmation prompts",
+        help="Validate all services without prompting for selection.",
     ),
 ) -> None:
     """
-    Run a dry-run of the application configuration without deploying the core services.
+    Run a dry-run of the application configuration without deploying the core services to the platform.
     """
     handle_env_error(env)
     config = load_config()

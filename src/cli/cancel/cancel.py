@@ -6,14 +6,14 @@ from cli.config import get_deployment_base_url
 def cancel(
     deployment_id: str = typer.Argument(
         ...,
-        help=f"The deploymentId you want to cancel",
+        help="The deployment ID to cancel.",
         show_default=False,
         case_sensitive=False,
     ),
     env: str = typer.Argument("dev"),
 ):
     """
-    Terminate the running deployment when it is in the validation phase.
+    Terminate the running deployment during its validation phase.
     """
     typer.secho(
         f"Try to Cancel the deployment for: {deployment_id}",

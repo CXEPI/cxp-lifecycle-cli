@@ -24,7 +24,7 @@ from cli.helpers.prompts import prompt_service_selection
 from cli.helpers.status import get_status_color
 from cli.register.register import create_application_in_developer_studio
 
-deploy_commands_app = CustomTyper(name="deploy", help="Manage deployment functions")
+deploy_commands_app = CustomTyper(name="deploy", help="Deploy your application to the platform.")
 METADATA_MAPPING = {  # keys are server keys, values are local config keys
         "description": "description",
         "leadDeveloper": "lead_developer_email",
@@ -272,22 +272,17 @@ def deploy(
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to credentials file. Uses default location if not specified.",
     ),
     deploy_all: bool = typer.Option(
         False,
         "--deploy-all",
         "-a",
-        help="Deploy all services without confirmation prompts",
+        help="Deploy all services without prompting for selection.",
     ),
 ) -> None:
     """
-    Deploy the application with the given deployment ID and environment.
-
-    Args:
-        env: The environment to deploy to, defaults to 'dev'.
-        creds_path: Optional path to credentials file. If not provided, the default path will be used.
-        deploy_all: If True, deploy all services without confirmation prompts.
+    Deploy your application services to the specified environment.
     """
     handle_env_error(env)
     config = load_config()
