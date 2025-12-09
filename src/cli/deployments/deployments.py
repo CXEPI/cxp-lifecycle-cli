@@ -9,7 +9,7 @@ from cli.helpers.file import load_config
 from cli.helpers.errors import handle_env_error
 
 
-deployments_app = typer.Typer(help="Get deployment details and history.")
+deployments_app = typer.Typer(help="View deployment details and history.")
 
 
 def _colorize_status(status: Optional[str]) -> str:
@@ -100,16 +100,16 @@ def _print_deployment_details(data: dict) -> None:
 
 @deployments_app.command("get")
 def get_deployment(
-    deployment_id: Optional[str] = typer.Argument(None, help="Deployment ID"),
+    deployment_id: Optional[str] = typer.Argument(None, help="The deployment ID to retrieve."),
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to credentials file. Uses default location if not specified.",
     ),
-    json_output: bool = typer.Option(False, "--json", help="Output raw JSON only"),
+    json_output: bool = typer.Option(False, "--json", help="Display output in raw JSON format."),
 ):
-    """Get deployment details.
-
+    """
+    Retrieve details for a specific deployment.
     With an ID: returns that deployment's full details.
     Without an ID: returns the current (last successful) deployment for the local application.
     """
@@ -173,17 +173,17 @@ def get_deployment(
 
 @deployments_app.command("history")
 def list_deployments_history(
-    app_id: Optional[str] = typer.Argument(None, help="Application ID"),
+    app_id: Optional[str] = typer.Argument(None, help="The application ID to view history for."),
     env: str = typer.Argument("dev"),
     creds_path: str = typer.Option(
         None,
-        help="Path to credentials file. If not provided, the default path will be used.",
+        help="Custom path to credentials file. Uses default location if not specified.",
     ),
-    json_output: bool = typer.Option(False, "--json", help="Output raw JSON only"),
+    json_output: bool = typer.Option(False, "--json", help="Display output in raw JSON format."),
 ):
-    """Show deployment history for an application.
-
-    Defaults to the local application's ID from lifecycle_config.yaml if --app-id is not provided.
+    """
+    View the deployment history for an application.
+    Defaults to the local application's ID from lifecycle_config.yaml if <app-id> not provided.
     """
     if app_id in ENVIRONMENTS and (not env or env == "dev"):
         env = app_id

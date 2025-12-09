@@ -345,13 +345,13 @@ def create_application_in_developer_studio(api, application_details):
 def register(
     env: str = typer.Argument(
         ...,
-        help=f"Environment (one of: {', '.join(ENVIRONMENTS)})",
+        help=f"Target environment for registration ({', '.join(ENVIRONMENTS)}).",
         show_default=False,
         case_sensitive=False,
     )
 ):
     """
-    Register the app in IAM and return service credentials.
+    Register your application in IAM and obtain service credentials.
     """
     handle_env_error(env)
     typer.secho("📦 Registering a new application...", fg=typer.colors.BRIGHT_BLUE)
