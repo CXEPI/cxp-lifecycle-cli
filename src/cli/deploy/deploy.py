@@ -263,8 +263,8 @@ def get_metadata_diff(config, server_data) -> None:
 
     if diff_metadata:
         diff_str = "\n".join([f"  • {k}: '{server_metadata[k]}' -> '{v}'" for k, v in diff_metadata.items()])
-        typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.BRIGHT_YELLOW)
-        typer.secho("Application metadata will be updated accordingly.", fg=typer.colors.BRIGHT_GREEN)
+        typer.secho(f"Metadata differences detected:\n{diff_str}", fg=typer.colors.MAGENTA)
+        typer.secho("Application metadata will be updated accordingly.", fg=typer.colors.MAGENTA)
 
 
 @deploy_commands_app.command("run")
@@ -450,10 +450,7 @@ def get_status(
         )
         headers = api.get_headers()
 
-        # Use requests to get a streaming response, then pass to SSEClient
-        response = requests.get(stream_url, headers=headers, stream=True)
-
-        for event in SSEClient(response):
+        for event in SSEClient(stream_url, headers=headers):
             if not event.data:
                 continue
 
