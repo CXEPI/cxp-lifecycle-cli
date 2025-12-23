@@ -74,8 +74,6 @@ def _print_deployment_details(data: dict) -> None:
                 ds = svc.get("deployment_status")
                 cfp = svc.get("configuration_file_path")
                 fr = svc.get("failure_reason")
-                topics = svc.get("num_of_topics")
-                topic_statuses = svc.get("topic_statuses")
 
                 if ds is not None:
                     typer.echo(f"    Status: {ds}")
@@ -83,15 +81,6 @@ def _print_deployment_details(data: dict) -> None:
                     typer.echo(f"    Config Path: {cfp}")
                 if fr is not None:
                     typer.echo(f"    Failure Reason: {fr}")
-                if topics is not None:
-                    typer.echo(f"    Num of Topics: {topics}")
-                if topic_statuses is not None:
-                    if isinstance(topic_statuses, dict) and topic_statuses:
-                        typer.echo("    Topic Statuses:")
-                        for tname, tstat in topic_statuses.items():
-                            typer.echo(f"      - {tname}: {tstat}")
-                    else:
-                        typer.echo("    Topic Statuses: {}")
             else:
                 typer.echo(f"    Details: {svc}")
 
