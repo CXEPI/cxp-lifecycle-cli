@@ -13,6 +13,8 @@ src/cli/api/api.py
 src/cli/api/function.py
 src/cli/api/helpers.py
 src/cli/api/ruleset/__init__.py
+src/cli/applications/__init__.py
+src/cli/applications/applications.py
 src/cli/cancel/__init__.py
 src/cli/cancel/cancel.py
 src/cli/datafabric/__init__.py
@@ -20,6 +22,8 @@ src/cli/datafabric/connector.py
 src/cli/datafabric/datafabric.py
 src/cli/deploy/__init__.py
 src/cli/deploy/deploy.py
+src/cli/deployments/__init__.py
+src/cli/deployments/deployments.py
 src/cli/dry_run/__init__.py
 src/cli/dry_run/dry_run.py
 src/cli/helpers/__init__.py
@@ -33,6 +37,8 @@ src/cli/helpers/prompts.py
 src/cli/helpers/status.py
 src/cli/init/__init__.py
 src/cli/init/init.py
+src/cli/ms/__init__.py
+src/cli/ms/ms.py
 src/cli/register/__init__.py
 src/cli/register/register.py
 src/cli/validate/__init__.py
@@ -43,5 +49,6 @@ src/lifecycle_cli.egg-info/dependency_links.txt
 src/lifecycle_cli.egg-info/entry_points.txt
 src/lifecycle_cli.egg-info/requires.txt
 src/lifecycle_cli.egg-info/top_level.txt
+tests/test_ms_commands.py
 tests/test_windows_compatibility.py
 tests/test_windows_simulation.py

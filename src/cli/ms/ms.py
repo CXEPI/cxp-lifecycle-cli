@@ -70,7 +70,7 @@ def grants_create(
     api = APIClient(base_url=get_messaging_api_url(env), env=env, creds_path=creds_path)
 
     payload = {
-        "app_id": app_id,
+        "applicationId": app_id,
         "role": role.value,
     }
     if group:
@@ -161,7 +161,7 @@ def grants_list(
         typer.secho("-" * 60)
 
         for grant in grants:
-            app_id = grant.get("app_id", "N/A")
+            app_id = grant.get("applicationId", "N/A")
             role = grant.get("role", "N/A")
             consumer_group = grant.get("consumer_group", "-")
 
