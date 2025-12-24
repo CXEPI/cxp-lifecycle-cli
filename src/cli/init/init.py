@@ -144,6 +144,49 @@ def _create_data_fabric_service_folder(service_path, service, api, update_only: 
     return updated_files
 
 
+def _create_message_service_folder(service_path, service, api, update_only: bool = False) -> List[str]:
+    """
+    Creates the folder structure for the message_service.
+    Structure:
+        message_service/
+        ├── topics/
+        │   ├── topic_json_schema.example.json   # Schema for validation
+        │   └── topic.example.json               # Example topic definition
+        └── messages/                            # User-defined message schemas (no templates)
+    """
+    updated_files = []
+
+    # Create topics folder
+    topics_path = service_path / "topics"
+    topics_path.mkdir(parents=True, exist_ok=True)
+
+    # Fetch topic schema from Knowledge Store
+    schema_response = fetch_schema(api, f"{service}/topic")
+    if schema_response:
+        json_schema = schema_response.get("jsonSchema", {})
+        example_instance = schema_response.get("exampleInstance", {})
+
+        json_schema_path = topics_path / "topic_json_schema.example.json"
+        example_instance_path = topics_path / "topic.example.json"
+
+        with open(json_schema_path, "w", encoding="utf-8") as schema_file:
+            schema_file.write(json.dumps(json_schema, indent=2))
+        updated_files.append(str(json_schema_path))
+        typer.secho(f"   ✔ {json_schema_path}", fg=typer.colors.BRIGHT_WHITE)
+
+        with open(example_instance_path, "w", encoding="utf-8") as example_file:
+            example_file.write(json.dumps(example_instance, indent=2))
+        updated_files.append(str(example_instance_path))
+        typer.secho(f"   ✔ {example_instance_path}", fg=typer.colors.BRIGHT_WHITE)
+
+    # Create messages folder (empty - user defines their own message schemas)
+    messages_path = service_path / "messages"
+    messages_path.mkdir(parents=True, exist_ok=True)
+    typer.secho(f"   ✔ {messages_path}/ (for user-defined message schemas)", fg=typer.colors.BRIGHT_WHITE)
+
+    return updated_files
+
+
 def _create_simple_service_folder(service_path, service, api) -> List[str]:
     """
     Creates a folder for a simple service with a single schema file.
@@ -186,6 +229,9 @@ def create_service_folders(lifecycle_path, core_services, api, update_only: bool
 
         if service == "data_fabric":
             updated_files = _create_data_fabric_service_folder(service_path, service, api, update_only)
+            all_updated_files.extend(updated_files)
+        elif service == "message_service":
+            updated_files = _create_message_service_folder(service_path, service, api, update_only)
             all_updated_files.extend(updated_files)
         elif service in ["iam", "baqs", "agent"]:
             updated_files = _create_simple_service_folder(service_path, service, api)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lifecycle-cli
-Version: 0.2.6
+Version: 0.3.4
 Summary: CLI tool for managing lifecycle operations
 Author-email: ronilefkowitz <rlefkowi@cisco.com>
 Keywords: cli,lifecycle,operations,deployment
