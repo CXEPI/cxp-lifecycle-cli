@@ -1,6 +1,6 @@
 [project]
 name = "lifecycle-cli"
-version = "0.3.5"
+version = "0.3.6"
 description = "CLI tool for managing lifecycle operations"
 authors = [
     {name = "ronilefkowitz", email = "rlefkowi@cisco.com"}
